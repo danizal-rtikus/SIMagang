@@ -106,23 +106,23 @@ export default function Register() {
                             <div style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }}>
                                 <Briefcase size={18} />
                             </div>
-                            <select
-                                name="role"
-                                className="input-field"
-                                style={{ paddingLeft: '44px', appearance: 'none' }}
-                                value={formData.role}
-                                onChange={handleChange}
-                            >
-                                <option value="mahasiswa">Mahasiswa</option>
-                                <option value="dosen">Dosen</option>
-                                <option value="admin">Admin</option>
-                            </select>
+                            <div style={{
+                                padding: '12px 16px 12px 44px',
+                                backgroundColor: '#f8fafc',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text-main)',
+                                fontSize: '0.95rem',
+                                fontWeight: 500
+                            }}>
+                                Mahasiswa
+                            </div>
                         </div>
                     </div>
 
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '0.9rem' }}>
-                            {formData.role === 'mahasiswa' ? 'NIM' : formData.role === 'dosen' ? 'NIP/NIDN/NUPTK' : 'ID Pegawai'}
+                            NIM (Nomor Induk Mahasiswa)
                         </label>
                         <div style={{ position: 'relative' }}>
                             <div style={{ position: 'absolute', top: '12px', left: '16px', color: 'var(--text-muted)' }}>
@@ -133,7 +133,7 @@ export default function Register() {
                                 name="identifier"
                                 className="input-field"
                                 style={{ paddingLeft: '44px' }}
-                                placeholder={formData.role === 'mahasiswa' ? "Contoh: 21010101" : "Nomor Identitas"}
+                                placeholder="Contoh: 21010101"
                                 value={formData.identifier}
                                 onChange={handleChange}
                                 required
