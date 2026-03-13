@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, supabaseAdmin } from '../../lib/supabase';
-import { User, Shield, Edit3, MapPin } from 'lucide-react';
+import { User, Shield, Edit3, MapPin, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function ManajemenUser() {
@@ -9,6 +9,7 @@ export default function ManajemenUser() {
 
     // Modal State
     const [showModal, setShowModal] = useState(false);
+    const [isAddMode, setIsAddMode] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [formData, setFormData] = useState({ full_name: '', identifier: '', role: 'mahasiswa', email: '', password: '' });
 
@@ -41,7 +42,21 @@ export default function ManajemenUser() {
         setLoading(false);
     };
 
+    const handleAdd = () => {
+        setIsAddMode(true);
+        setEditingUser(null);
+        setFormData({ 
+            full_name: '', 
+            identifier: '',
+            role: 'dosen',
+            email: '',
+            password: ''
+        });
+        setShowModal(true);
+    };
+
     const handleEdit = (user) => {
+        setIsAddMode(false);
         setEditingUser(user);
         setFormData({ 
             full_name: user.full_name, 
@@ -56,6 +71,46 @@ export default function ManajemenUser() {
     const handleSave = async (e) => {
         e.preventDefault();
         
+        if (isAddMode) {
+            if (!supabaseAdmin) {
+                toast.error("Penambahan user baru memerlukan konfigurasi VITE_SUPABASE_SERVICE_ROLE_KEY di file .env");
+                return;
+            }
+            if (!formData.password || !formData.email) {
+                toast.error("Email dan password wajib diisi untuk mendafarkan pengguna baru!");
+                return;
+            }
+
+            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                email: formData.email,
+                password: formData.password,
+                email_confirm: true // bypass konfirmasi email
+            });
+
+            if (authError) {
+                toast.error("Gagal mendaftarkan autentikasi: " + authError.message);
+                return;
+            }
+
+            if (authData.user) {
+                const { error: profileError } = await supabase.from('users_profile').insert([{
+                    id: authData.user.id,
+                    full_name: formData.full_name,
+                    identifier: formData.identifier,
+                    role: formData.role
+                }]);
+
+                if (profileError) {
+                    toast.error("Gagal menyimpan profil: " + profileError.message);
+                } else {
+                    toast.success("Pengguna baru berhasil ditambahkan!");
+                    setShowModal(false);
+                    fetchUsers();
+                }
+            }
+            return;
+        }
+
         let hasError = false;
 
         // 1. Update profil di tabel public.users_profile
@@ -99,9 +154,16 @@ export default function ManajemenUser() {
 
     return (
         <div>
-            <div style={{ marginBottom: '24px' }}>
-                <h1 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>Manajemen User</h1>
-                <p style={{ color: 'var(--text-muted)' }}>Kelola data profil dan hak akses seluruh pengguna sistem.</p>
+            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>Manajemen User</h1>
+                    <p style={{ color: 'var(--text-muted)' }}>Kelola data profil dan hak akses seluruh pengguna sistem.</p>
+                </div>
+                {supabaseAdmin && (
+                    <button onClick={handleAdd} className="btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <UserPlus size={18} /> Tambah Pengguna
+                    </button>
+                )}
             </div>
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
@@ -171,7 +233,7 @@ export default function ManajemenUser() {
             {showModal && (
                 <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                     <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', backgroundColor: 'white', padding: '32px' }}>
-                        <h2 style={{ marginBottom: '24px' }}>Ubah Data Pengguna</h2>
+                        <h2 style={{ marginBottom: '24px' }}>{isAddMode ? 'Tambah Pengguna Baru' : 'Ubah Data Pengguna'}</h2>
                         <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Nama Lengkap</label>
