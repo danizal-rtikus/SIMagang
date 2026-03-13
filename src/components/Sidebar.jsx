@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Map, Briefcase, FileText, Calendar, LogOut, Camera, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
+import { LayoutDashboard, Users, Map, Briefcase, FileText, Calendar, LogOut, Camera, ChevronDown, ChevronRight, MapPin, Megaphone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Sidebar({ role, isOpen, setIsOpen }) {
@@ -56,6 +56,7 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
                             { name: 'Plotting Magang', path: '/admin/plotting', icon: <Briefcase size={18} /> }
                         ]
                     },
+                    { name: 'Kelola Pengumuman', path: '/admin/announcements', icon: <Megaphone size={20} /> },
                     { 
                         name: 'Lokasi', 
                         icon: <Map size={20} />,
@@ -67,6 +68,7 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
             case 'dosen':
                 return [
                     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+                    { name: 'Pengumuman', path: '/dosen/announcements', icon: <Megaphone size={20} /> },
                     {
                         name: 'Laporan',
                         icon: <FileText size={20} />,
@@ -87,6 +89,7 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
             case 'mahasiswa':
                 return [
                     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+                    { name: 'Pengumuman', path: '/mahasiswa/announcements', icon: <Megaphone size={20} /> },
                     { name: 'Presensi Harian', path: '/mahasiswa/attendance', icon: <Camera size={20} /> },
                     {
                         name: 'Laporan',

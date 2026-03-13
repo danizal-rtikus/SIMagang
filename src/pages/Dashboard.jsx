@@ -1,12 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
-import { Users, CheckCircle, Clock, FileText, Briefcase, Activity, Calendar, Search, MapPin } from 'lucide-react';
+import { Users, CheckCircle, Clock, FileText, Briefcase, Activity, Calendar, Search, MapPin, Megaphone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+const renderTextWithLinks = (text) => {
+    if (!text) return text;
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/g;
+    return text.split(urlRegex).map((part, i) => {
+        if (part.match(urlRegex)) {
+            const href = part.startsWith('http') ? part : `https://${part}`;
+            return <a key={i} href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>;
+        }
+        return part;
+    });
+};
 
 export default function Dashboard() {
     const { userProfile } = useOutletContext();
     const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0 });
     const [mhsData, setMhsData] = useState({ monthlyCount: 0, dailyTimeline: [] });
+    const [announcements, setAnnouncements] = useState([]); // State Pengumuman
+    const [currentSlide, setCurrentSlide] = useState(0); // State Slider
     
     // State khusus untuk Admin
     const [adminData, setAdminData] = useState({ dosen: [], mahasiswa: [], mitra: [] });
@@ -20,6 +34,7 @@ export default function Dashboard() {
     useEffect(() => {
         if (userProfile?.role) {
             fetchStats();
+            fetchAnnouncements(); // Ambil pengumuman tiap render dashboard
             if (userProfile.role === 'admin') {
                 fetchAdminData();
             } else if (userProfile.role === 'mahasiswa') {
@@ -29,6 +44,26 @@ export default function Dashboard() {
             }
         }
     }, [userProfile]);
+
+    useEffect(() => {
+        if (announcements.length > 1) {
+            const timer = setInterval(() => {
+                setCurrentSlide((prev) => (prev + 1) % announcements.length);
+            }, 5000);
+            return () => clearInterval(timer);
+        }
+    }, [announcements.length]);
+
+    const fetchAnnouncements = async () => {
+        const { data } = await supabase
+            .from('announcements')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+            
+        // RLS Supabase secara otomatis sudah mem-filter target_role yang boleh dilihat user ini
+        if (data) setAnnouncements(data);
+    };
 
     const fetchAdminData = async () => {
         const { data: rawDosen } = await supabase.from('users_profile').select('id, full_name, identifier').eq('role', 'dosen');
@@ -408,6 +443,80 @@ export default function Dashboard() {
             </div>
         );
     };
+    const renderAnnouncements = () => {
+        if (announcements.length === 0) return null;
+        
+        const item = announcements[currentSlide];
+
+        return (
+            <div style={{ marginBottom: '32px' }}>
+                <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                    <div style={{ 
+                        padding: '16px 24px', 
+                        backgroundColor: '#EEF2FF', 
+                        borderLeft: '4px solid #4F46E5', 
+                        display: 'flex', 
+                        gap: '16px', 
+                        alignItems: 'flex-start',
+                        transition: 'opacity 0.5s ease-in-out'
+                    }}>
+                        <div style={{ 
+                            width: '40px', height: '40px', borderRadius: '50%', 
+                            backgroundColor: 'white', color: '#4F46E5', 
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                            <Megaphone size={20} />
+                        </div>
+                        <div style={{ flex: 1, minHeight: '80px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                <h4 style={{ margin: 0, fontSize: '1rem', color: '#1E1B4B' }}>{item.title}</h4>
+                                <span style={{ fontSize: '0.8rem', color: '#6366F1', fontWeight: 500 }}>
+                                    {new Date(item.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                                </span>
+                            </div>
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#4338CA', lineHeight: 1.5, whiteSpace: 'pre-wrap', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {renderTextWithLinks(item.content)}
+                            </p>
+                            {(userProfile?.role === 'mahasiswa' || userProfile?.role === 'dosen') && (
+                                <Link to={`/${userProfile.role}/announcements`} style={{ fontSize: '0.85rem', color: '#4F46E5', textDecoration: 'none', fontWeight: 600, display: 'inline-block', marginTop: '8px' }}>
+                                    Buka Papan Selengkapnya &rarr;
+                                </Link>
+                            )}
+                            {(userProfile?.role === 'admin') && (
+                                <Link to={`/admin/announcements`} style={{ fontSize: '0.85rem', color: '#4F46E5', textDecoration: 'none', fontWeight: 600, display: 'inline-block', marginTop: '8px' }}>
+                                    Kelola Pengumuman Selengkapnya &rarr;
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Indikator Slider */}
+                {announcements.length > 1 && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
+                        {announcements.map((_, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => setCurrentSlide(idx)}
+                                style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    backgroundColor: currentSlide === idx ? '#4F46E5' : '#C7D2FE',
+                                    border: 'none',
+                                    padding: 0,
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.3s, transform 0.3s',
+                                    transform: currentSlide === idx ? 'scale(1.2)' : 'scale(1)'
+                                }}
+                                aria-label={`Slide ${idx + 1}`}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div>
@@ -417,6 +526,8 @@ export default function Dashboard() {
                     Selamat datang kembali, <strong>{userProfile?.full_name}</strong>.
                 </p>
             </div>
+
+            {renderAnnouncements()}
 
             {userProfile?.role === 'admin' && renderAdminDashboard()}
             {userProfile?.role === 'dosen' && renderDosenDashboard()}

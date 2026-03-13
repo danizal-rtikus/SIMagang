@@ -9,6 +9,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Internships from './pages/Internships';
 import Logbooks from './pages/Logbooks';
+// Import Komponen General View
+import Pengumuman from './pages/Pengumuman';
 
 // Import Mahasiswa Components
 import Attendance from './pages/mahasiswa/Attendance';
@@ -20,6 +22,7 @@ import MhsFinalReports from './pages/mahasiswa/FinalReports';
 // Import Admin Components
 import ManajemenUser from './pages/admin/ManajemenUser';
 import ManajemenMitra from './pages/admin/ManajemenMitra';
+import ManajemenPengumuman from './pages/admin/ManajemenPengumuman';
 import AdminMap from './pages/admin/MapGlobal';
 import PlottingMagang from './pages/admin/PlottingMagang';
 
@@ -76,16 +79,19 @@ function App() {
           {/* Menu Admin */}
           <Route path="admin/users" element={<ManajemenUser />} />
           <Route path="admin/partners" element={<ManajemenMitra />} />
+          <Route path="admin/announcements" element={<ManajemenPengumuman />} />
           <Route path="admin/map" element={<AdminMap />} />
           <Route path="admin/plotting" element={<PlottingMagang />} />
 
           {/* Menu Dosen */}
+          <Route path="dosen/announcements" element={<Pengumuman />} />
           <Route path="dosen/daily-reports" element={<DosenDailyReports />} />
           <Route path="dosen/monthly-reports" element={<DosenMonthlyReports />} />
           <Route path="dosen/final-reports" element={<DosenFinalReports />} />
           <Route path="dosen/map" element={<DosenMap />} />
 
           {/* Menu Mahasiswa */}
+          <Route path="mahasiswa/announcements" element={<Pengumuman />} />
           <Route path="mahasiswa/attendance" element={<Attendance />} />
           <Route path="mahasiswa/daily-reports" element={<MhsDailyReports />} />
           <Route path="mahasiswa/daily-reports/print" element={<MhsPrintDailyReports />} />
