@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, supabaseAdmin } from '../../lib/supabase';
-import { User, Shield, Edit3, MapPin, UserPlus } from 'lucide-react';
+import { User, Shield, Edit3, MapPin, UserPlus, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function ManajemenUser() {
@@ -11,6 +11,7 @@ export default function ManajemenUser() {
     const [showModal, setShowModal] = useState(false);
     const [isAddMode, setIsAddMode] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [formData, setFormData] = useState({ full_name: '', identifier: '', role: 'mahasiswa', email: '', password: '' });
 
     useEffect(() => {
@@ -66,6 +67,31 @@ export default function ManajemenUser() {
             password: '' // Kosongkan, hanya diisi kalau mau memgubah pass
         });
         setShowModal(true);
+    };
+
+    const handleDelete = (user) => {
+        setDeleteConfirm(user);
+    };
+
+    const executeDelete = async () => {
+        if (!deleteConfirm) return;
+        
+        if (!supabaseAdmin) {
+            toast.error("Tidak dapat menghapus pengguna secara permanen tanpa konfigurasi VITE_SUPABASE_SERVICE_ROLE_KEY di file .env");
+            setDeleteConfirm(null);
+            return;
+        }
+
+        // Hapus pengguna dari auth.users menggunakan admin API (cascade akan menghapus dari users_profile otomatis)
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(deleteConfirm.id);
+        
+        if (!error) {
+            toast.success(`Pengguna ${deleteConfirm.full_name} berhasil dihapus.`);
+            fetchUsers();
+        } else {
+            toast.error("Gagal menghapus pengguna: " + error.message);
+        }
+        setDeleteConfirm(null);
     };
 
     const handleSave = async (e) => {
@@ -218,9 +244,16 @@ export default function ManajemenUser() {
                                         </td>
                                         <td style={{ padding: '16px', fontSize: '0.9rem' }}>{new Date(user.created_at).toLocaleDateString('id-ID')}</td>
                                         <td style={{ padding: '16px' }}>
-                                            <button onClick={() => handleEdit(user)} className="input-field" style={{ width: 'auto', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
-                                                <Edit3 size={14} /> Ubah
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button onClick={() => handleEdit(user)} className="input-field" style={{ width: 'auto', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                                                    <Edit3 size={14} /> Ubah
+                                                </button>
+                                                {supabaseAdmin && (
+                                                    <button onClick={() => handleDelete(user)} style={{ background: '#FEF2F2', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem' }} title="Hapus Pengguna">
+                                                        <Trash2 size={14} /> Hapus
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -302,6 +335,28 @@ export default function ManajemenUser() {
                                 <button type="submit" className="btn-primary">Simpan</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Konfirmasi Hapus */}
+            {deleteConfirm && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', maxWidth: '400px', width: '100%' }}>
+                        <p style={{ margin: '0 0 16px 0', fontWeight: 500, fontSize: '1.05rem', color: '#1e293b' }}>
+                            Yakin ingin menghapus pengguna "{deleteConfirm.full_name}" secara permanen?
+                        </p>
+                        <p style={{ margin: '0 0 20px 0', fontSize: '0.9rem', color: '#EF4444' }}>
+                            Tindakan ini tidak dapat dibatalkan dan akan menghapus semua file serta riwayat yang terhubung!
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setDeleteConfirm(null)} style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+                                Batal
+                            </button>
+                            <button onClick={executeDelete} style={{ padding: '8px 16px', border: 'none', borderRadius: '6px', background: '#EF4444', color: 'white', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+                                Hapus Permanen
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
