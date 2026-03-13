@@ -9,6 +9,7 @@ export default function Layout() {
     const [session, setSession] = useState(null);
     const [userProfile, setUserProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile Toggle State
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -67,13 +68,21 @@ export default function Layout() {
 
     return (
         <div className="app-container">
-            <Sidebar role={userProfile?.role} />
+            <Sidebar role={userProfile?.role} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
             <div className="main-content">
-                <Header userProfile={userProfile} />
+                <Header userProfile={userProfile} onMenuClick={() => setIsSidebarOpen(true)} />
                 <main className="page-wrapper">
                     <Outlet context={{ session, userProfile }} />
                 </main>
             </div>
+            {/* Backdrop ketika sidebar terbuka di mobile */}
+            {isSidebarOpen && (
+                <div 
+                    className="sidebar-backdrop" 
+                    onClick={() => setIsSidebarOpen(false)}
+                    style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 40 }}
+                />
+            )}
         </div>
     );
 }

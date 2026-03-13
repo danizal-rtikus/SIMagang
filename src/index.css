@@ -181,3 +181,84 @@ button {
   max-width: 440px;
   padding: 40px;
 }
+
+/* Responsive Utilities */
+/* Bungkus overflow untuk display tabel panjang */
+.table-responsive-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+@media screen and (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  
+  /* Sembunyikan sidebar by default di mobile */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    height: 100vh;
+    z-index: 50;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+  }
+  
+  /* Kelas untuk membuka sidebar */
+  .sidebar.mobile-open {
+    left: 0;
+  }
+  
+  /* Backdrop untuk menutup sidebar di luar tap */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 40;
+    backdrop-filter: blur(2px);
+  }
+
+  .header {
+    padding: 0 16px;
+  }
+
+  /* Sembunyikan nama user agar tidak penuh, sisakan icon */
+  .header-user-info {
+    display: none;
+  }
+
+  .page-wrapper {
+    padding: 16px;
+  }
+
+  /* Text penyesuaian untuk HP */
+  h1 { font-size: 1.4rem !important; }
+  .glass-panel { padding: 16px !important; }
+}
+
+/* Print Specific Styles */
+@media print {
+  .sidebar, .header, .no-print {
+    display: none !important;
+  }
+  .main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+  .app-container {
+    display: block !important;
+  }
+  .page-wrapper {
+    padding: 0 !important;
+  }
+  body, html {
+    background-color: white !important;
+    background-image: none !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+}

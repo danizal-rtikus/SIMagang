@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Plus, Check, MessageSquare, Trash2, Edit3 } from 'lucide-react';
+import { Plus, Check, MessageSquare, Trash2, Edit3, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function DailyReports() {
@@ -101,9 +101,14 @@ export default function DailyReports() {
                     <p style={{ color: 'var(--text-muted)' }}>Catatan jurnal kegiatan magang per hari.</p>
                 </div>
 
-                <button onClick={() => { setFormData({ id: null, date: new Date().toISOString().split('T')[0], activity: '' }); setShowModal(true); }} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Plus size={18} /> Tambah Kegiatan
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <Link to="/mahasiswa/daily-reports/print" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#F8FAFC', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
+                        <Printer size={18} /> Cetak PDF
+                    </Link>
+                    <button onClick={() => { setFormData({ id: null, date: new Date().toISOString().split('T')[0], activity: '' }); setShowModal(true); }} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Plus size={18} /> Tambah Kegiatan
+                    </button>
+                </div>
             </div>
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
@@ -112,39 +117,41 @@ export default function DailyReports() {
                 ) : reports.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada laporan harian.</div>
                 ) : (
-                    <div style={{ display: 'grid', gap: '1px', backgroundColor: 'var(--border)' }}>
-                        {reports.map((report) => (
-                            <div key={report.id} style={{ padding: '24px', backgroundColor: 'white', display: 'flex', gap: '16px', flexDirection: 'column' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <h3 style={{ fontSize: '1.1rem', margin: 0 }}>
-                                        {new Date(report.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                    </h3>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div>{getStatusBadge(report.status)}</div>
-                                        {report.status !== 'approved' && (
-                                            <>
-                                                <button onClick={() => handleEditReport(report)} style={{ background: 'none', border: 'none', color: '#3B82F6', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }} title="Edit Laporan">
-                                                    <Edit3 size={16} />
-                                                </button>
-                                                <button onClick={() => handleDeleteReport(report.id)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }} title="Hapus Laporan">
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </>
-                                        )}
+                    <div className="table-responsive-wrapper">
+                        <div style={{ display: 'grid', gap: '1px', backgroundColor: 'var(--border)', minWidth: '600px' }}>
+                            {reports.map((report) => (
+                                <div key={report.id} style={{ padding: '24px', backgroundColor: 'white', display: 'flex', gap: '16px', flexDirection: 'column' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <h3 style={{ fontSize: '1.1rem', margin: 0 }}>
+                                            {new Date(report.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                        </h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div>{getStatusBadge(report.status)}</div>
+                                            {report.status !== 'approved' && (
+                                                <>
+                                                    <button onClick={() => handleEditReport(report)} style={{ background: 'none', border: 'none', color: '#3B82F6', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }} title="Edit Laporan">
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteReport(report.id)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' }} title="Hapus Laporan">
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div style={{ backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '8px', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                                    {report.activity}
-                                </div>
-
-                                {report.note_dosen && (
-                                    <div style={{ backgroundColor: '#FEF2F2', padding: '12px 16px', borderLeft: '4px solid #EF4444', borderRadius: '4px', fontSize: '0.9rem' }}>
-                                        <strong><MessageSquare size={14} /> Catatan Pembimbing:</strong> {report.note_dosen}
+                                    <div style={{ backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '8px', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
+                                        {report.activity}
                                     </div>
-                                )}
-                            </div>
-                        ))}
+
+                                    {report.note_dosen && (
+                                        <div style={{ backgroundColor: '#FEF2F2', padding: '12px 16px', borderLeft: '4px solid #EF4444', borderRadius: '4px', fontSize: '0.9rem' }}>
+                                            <strong><MessageSquare size={14} /> Catatan Pembimbing:</strong> {report.note_dosen}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>

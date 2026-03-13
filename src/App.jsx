@@ -13,6 +13,7 @@ import Logbooks from './pages/Logbooks';
 // Import Mahasiswa Components
 import Attendance from './pages/mahasiswa/Attendance';
 import MhsDailyReports from './pages/mahasiswa/DailyReports';
+import MhsPrintDailyReports from './pages/mahasiswa/PrintDailyReports';
 import MhsMonthlyReports from './pages/mahasiswa/MonthlyReports';
 import MhsFinalReports from './pages/mahasiswa/FinalReports';
 
@@ -87,6 +88,7 @@ function App() {
           {/* Menu Mahasiswa */}
           <Route path="mahasiswa/attendance" element={<Attendance />} />
           <Route path="mahasiswa/daily-reports" element={<MhsDailyReports />} />
+          <Route path="mahasiswa/daily-reports/print" element={<MhsPrintDailyReports />} />
           <Route path="mahasiswa/monthly-reports" element={<MhsMonthlyReports />} />
           <Route path="mahasiswa/final-reports" element={<MhsFinalReports />} />
         </Route>

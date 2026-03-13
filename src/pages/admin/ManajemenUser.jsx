@@ -170,10 +170,10 @@ export default function ManajemenUser() {
                 {loading ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat pengguna...</div>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                    <div className="table-responsive-wrapper">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
                             <thead>
-                                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
+                                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
                                     <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Nama & Email</th>
                                     <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>No. Identitas</th>
                                     <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Hak Akses (Role)</th>

@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Map, Briefcase, FileText, Calendar, LogOut, Camera, ChevronDown, ChevronRight, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, isOpen, setIsOpen }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [openMenus, setOpenMenus] = useState({});
@@ -25,6 +25,11 @@ export default function Sidebar({ role }) {
 
         if (hasChanges) {
             setOpenMenus(newOpenMenus);
+        }
+        
+        // Auto-close sidebar on mobile when route changes
+        if (isOpen) {
+            setIsOpen(false);
         }
     }, [location.pathname, role]);
 
@@ -101,7 +106,7 @@ export default function Sidebar({ role }) {
     const menuItems = getMenuItems();
 
     return (
-        <aside className="sidebar">
+        <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
             <div style={{ padding: '0 24px 32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <img 
