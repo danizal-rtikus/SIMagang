@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Map, Briefcase, FileText, Calendar, LogOut, Camera, ChevronDown, ChevronRight, MapPin, Megaphone } from 'lucide-react';
+import { LayoutDashboard, Users, Map, Briefcase, FileText, Calendar, Camera, ChevronDown, ChevronRight, MapPin, Megaphone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Sidebar({ role, isOpen, setIsOpen }) {
@@ -32,11 +32,6 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
             setIsOpen(false);
         }
     }, [location.pathname, role]);
-
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        navigate('/login');
-    };
 
     const toggleMenu = (name) => {
         setOpenMenus(prev => ({ ...prev, [name]: !prev[name] }));
@@ -168,17 +163,6 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
                     </div>
                 ))}
             </nav>
-
-            <div style={{ padding: '24px 16px 0', borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
-                <button
-                    onClick={handleLogout}
-                    className="nav-link"
-                    style={{ width: '100%', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                >
-                    <LogOut size={20} />
-                    <span>Keluar</span>
-                </button>
-            </div>
 
             <style>{`
         .sidebar {

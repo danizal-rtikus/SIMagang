@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, supabaseAdmin } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { User, Shield, Edit3, MapPin, UserPlus, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -28,16 +28,6 @@ export default function ManajemenUser() {
         if (!profileError && profileData) {
             let combinedUsers = profileData;
 
-            // Jika ada akses ke auth.admin, gabungkan dengan data email
-            if (supabaseAdmin) {
-                const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers();
-                if (!authError && authData?.users) {
-                    combinedUsers = profileData.map(p => {
-                        const authMatch = authData.users.find(u => u.id === p.id);
-                        return { ...p, email: authMatch?.email || '' };
-                    });
-                }
-            }
             setUsers(combinedUsers);
         }
         setLoading(false);
@@ -75,106 +65,104 @@ export default function ManajemenUser() {
 
     const executeDelete = async () => {
         if (!deleteConfirm) return;
-        
-        if (!supabaseAdmin) {
-            toast.error("Tidak dapat menghapus pengguna secara permanen tanpa konfigurasi VITE_SUPABASE_SERVICE_ROLE_KEY di file .env");
-            setDeleteConfirm(null);
-            return;
-        }
 
-        // Hapus pengguna dari auth.users menggunakan admin API (cascade akan menghapus dari users_profile otomatis)
-        const { error } = await supabaseAdmin.auth.admin.deleteUser(deleteConfirm.id);
+        toast.loading('Sedang menghapus pengguna secara permanen...', { id: 'delete' });
         
-        if (!error) {
-            toast.success(`Pengguna ${deleteConfirm.full_name} berhasil dihapus.`);
+        try {
+            const { error, data } = await supabase.functions.invoke('admin-user-manage', {
+                body: { action: 'deleteUser', payload: { userId: deleteConfirm.id } }
+            });
+            
+            if (!data?.success || error) {
+                throw new Error(data?.error || error?.message || 'Gagal menghapus');
+            }
+
+            toast.success(`Pengguna ${deleteConfirm.full_name} berhasil dihapus.`, { id: 'delete' });
             fetchUsers();
-        } else {
-            toast.error("Gagal menghapus pengguna: " + error.message);
+            setDeleteConfirm(null);
+        } catch (err) {
+            toast.error(err.message, { id: 'delete' });
         }
-        setDeleteConfirm(null);
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
         
+        toast.loading(isAddMode ? 'Mendaftarkan pengguna...' : 'Menyimpan perubahan...', { id: 'save' });
+
         if (isAddMode) {
-            if (!supabaseAdmin) {
-                toast.error("Penambahan user baru memerlukan konfigurasi VITE_SUPABASE_SERVICE_ROLE_KEY di file .env");
-                return;
-            }
             if (!formData.password || !formData.email) {
-                toast.error("Email dan password wajib diisi untuk mendafarkan pengguna baru!");
+                toast.error("Email dan password wajib diisi untuk mendafarkan pengguna baru!", { id: 'save' });
                 return;
             }
 
-            const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-                email: formData.email,
-                password: formData.password,
-                email_confirm: true // bypass konfirmasi email
-            });
+            try {
+                const { data, error } = await supabase.functions.invoke('admin-user-manage', {
+                    body: { 
+                        action: 'createUser', 
+                        payload: { 
+                            email: formData.email, 
+                            password: formData.password, 
+                            full_name: formData.full_name,
+                            identifier: formData.identifier,
+                            role: formData.role
+                        } 
+                    }
+                });
 
-            if (authError) {
-                toast.error("Gagal mendaftarkan autentikasi: " + authError.message);
-                return;
-            }
-
-            if (authData.user) {
-                const { error: profileError } = await supabase.from('users_profile').insert([{
-                    id: authData.user.id,
-                    full_name: formData.full_name,
-                    identifier: formData.identifier,
-                    role: formData.role
-                }]);
-
-                if (profileError) {
-                    toast.error("Gagal menyimpan profil: " + profileError.message);
-                } else {
-                    toast.success("Pengguna baru berhasil ditambahkan!");
-                    setShowModal(false);
-                    fetchUsers();
+                if (!data?.success || error) {
+                    throw new Error(data?.error || error?.message || 'Gagal mendaftar');
                 }
+
+                toast.success("Pengguna baru berhasil ditambahkan!", { id: 'save' });
+                setShowModal(false);
+                fetchUsers();
+            } catch (err) {
+                toast.error(err.message, { id: 'save' });
             }
             return;
         }
 
         let hasError = false;
 
-        // 1. Update profil di tabel public.users_profile
+        // 1. Update profil dasar di tabel public.users_profile
         const { error: profileError } = await supabase
             .from('users_profile')
             .update({ full_name: formData.full_name, identifier: formData.identifier, role: formData.role })
             .eq('id', editingUser.id);
 
         if (profileError) {
-            toast.error("Gagal memperbarui profil: " + profileError.message);
+            toast.error("Gagal memperbarui profil: " + profileError.message, { id: 'save' });
             hasError = true;
         }
 
-        // 2. Update auth.users (email & password jika diisi) jika memiliki hak akses Service Role
+        // 2. Update kredensial via secure Edge Function (jika email atau password diisi)
         if (!hasError && (formData.email !== editingUser.email || formData.password)) {
-            if (!supabaseAdmin) {
-                toast.error("Tidak dapat memperbarui kredensial tanpa SERVICE_ROLE_KEY. Profil tetap tersimpan.");
-            } else {
-                let updates = {};
-                if (formData.email !== editingUser.email) updates.email = formData.email;
-                if (formData.password) updates.password = formData.password;
+            try {
+                const { data, error } = await supabase.functions.invoke('admin-user-manage', {
+                    body: {
+                        action: 'updateUser',
+                        payload: {
+                            userId: editingUser.id,
+                            email: formData.email !== editingUser.email ? formData.email : undefined,
+                            password: formData.password ? formData.password : undefined
+                        }
+                    }
+                });
 
-                const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-                    editingUser.id,
-                    updates
-                );
-
-                if (authError) {
-                    toast.error("Gagal memperbarui autentikasi: " + authError.message);
-                    hasError = true;
+                if (!data?.success || error) {
+                    throw new Error(data?.error || error?.message || 'Gagal update auth');
                 }
+            } catch (err) {
+                toast.error(err.message, { id: 'save' });
+                hasError = true;
             }
         }
 
         if (!hasError) {
             setShowModal(false);
             fetchUsers();
-            toast.success("Data pengguna berhasil diperbarui!");
+            toast.success("Data pengguna berhasil diperbarui!", { id: 'save' });
         }
     };
 
@@ -185,11 +173,9 @@ export default function ManajemenUser() {
                     <h1 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>Manajemen User</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Kelola data profil dan hak akses seluruh pengguna sistem.</p>
                 </div>
-                {supabaseAdmin && (
-                    <button onClick={handleAdd} className="btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <UserPlus size={18} /> Tambah Pengguna
-                    </button>
-                )}
+                <button onClick={handleAdd} className="btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <UserPlus size={18} /> Tambah Pengguna
+                </button>
             </div>
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
@@ -248,11 +234,9 @@ export default function ManajemenUser() {
                                                 <button onClick={() => handleEdit(user)} className="input-field" style={{ width: 'auto', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
                                                     <Edit3 size={14} /> Ubah
                                                 </button>
-                                                {supabaseAdmin && (
-                                                    <button onClick={() => handleDelete(user)} style={{ background: '#FEF2F2', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem' }} title="Hapus Pengguna">
-                                                        <Trash2 size={14} /> Hapus
-                                                    </button>
-                                                )}
+                                                <button onClick={() => handleDelete(user)} style={{ background: '#FEF2F2', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', fontSize: '0.85rem' }} title="Hapus Pengguna">
+                                                    <Trash2 size={14} /> Hapus
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -301,30 +285,23 @@ export default function ManajemenUser() {
 
                             <div style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)' }}>
                                 <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem' }}>Login & Keamanan</h4>
-                                {!supabaseAdmin && (
-                                    <div style={{ marginBottom: '16px', fontSize: '0.8ren', color: '#B45309', backgroundColor: '#FEF3C7', padding: '8px', borderRadius: '6px' }}>
-                                        ⚠️ Untuk dapat mengubah Email/Sandi, Anda wajib menambahkan `VITE_SUPABASE_SERVICE_ROLE_KEY` ke dalam file `.env`.
-                                    </div>
-                                )}
                                 
                                 <div style={{ marginBottom: '12px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '0.9rem' }}>Ubah Email</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '0.9rem' }}>Email Login Pilihan</label>
                                     <input
-                                        type="email" className="input-field"
+                                        type="email" className="input-field" required={isAddMode}
                                         placeholder="user@email.com"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        disabled={!supabaseAdmin}
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '0.9rem' }}>Sandi Baru (Optional)</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, fontSize: '0.9rem' }}>{isAddMode ? 'Sandi Baru' : 'Sandi Baru (Optional)'}</label>
                                     <input
-                                        type="password" className="input-field"
-                                        placeholder="Kosongkan jika tidak diubah"
+                                        type="password" className="input-field" required={isAddMode}
+                                        placeholder={isAddMode ? "Ketik kata sandi (min. 6 karakter)" : "Kosongkan jika tidak diubah"}
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        disabled={!supabaseAdmin}
                                     />
                                 </div>
                             </div>

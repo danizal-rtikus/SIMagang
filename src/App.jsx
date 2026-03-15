@@ -18,6 +18,7 @@ import MhsDailyReports from './pages/mahasiswa/DailyReports';
 import MhsPrintDailyReports from './pages/mahasiswa/PrintDailyReports';
 import MhsMonthlyReports from './pages/mahasiswa/MonthlyReports';
 import MhsFinalReports from './pages/mahasiswa/FinalReports';
+import Profile from './pages/Profile';
 
 // Import Admin Components
 import ManajemenUser from './pages/admin/ManajemenUser';
@@ -75,6 +76,7 @@ function App() {
 
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="profile" element={<Profile />} />
 
           {/* Menu Admin */}
           <Route path="admin/users" element={<ManajemenUser />} />

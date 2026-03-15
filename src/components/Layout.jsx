@@ -12,20 +12,35 @@ export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile Toggle State
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            if (session) fetchProfile(session.user.id);
+        let currentSession = null;
+        
+        supabase.auth.getSession().then(({ data: { session: initSession } }) => {
+            currentSession = initSession;
+            setSession(initSession);
+            if (initSession) fetchProfile(initSession.user.id);
             else setLoading(false);
         });
 
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
+            currentSession = session;
             setSession(session);
             if (session) fetchProfile(session.user.id);
         });
 
-        return () => subscription.unsubscribe();
+        // Dengarkan event pembaruan dari halaman Profile
+        const handleProfileUpdate = () => {
+            if (currentSession?.user?.id) {
+                fetchProfile(currentSession.user.id);
+            }
+        };
+        window.addEventListener('profileUpdated', handleProfileUpdate);
+
+        return () => {
+            subscription.unsubscribe();
+            window.removeEventListener('profileUpdated', handleProfileUpdate);
+        };
     }, []);
 
     const fetchProfile = async (userId) => {
