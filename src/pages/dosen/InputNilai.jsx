@@ -1,0 +1,315 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { Save, ChevronDown, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+const SKALA = [
+    { value: 1, label: 'SK', title: 'Sangat Kurang',  color: '#DC2626', bg: '#FEE2E2' },
+    { value: 2, label: 'K',  title: 'Kurang',         color: '#D97706', bg: '#FEF3C7' },
+    { value: 3, label: 'C',  title: 'Cukup',          color: '#2563EB', bg: '#DBEAFE' },
+    { value: 4, label: 'B',  title: 'Baik',           color: '#059669', bg: '#D1FAE5' },
+    { value: 5, label: 'BS', title: 'Baik Sekali',    color: '#7C3AED', bg: '#EDE9FE' },
+];
+
+// Convert raw sum → skala 45-100
+function convertToFinalScore(rawSum, totalButir) {
+    if (!totalButir) return 0;
+    const minRaw = totalButir;      // all SK=1
+    const maxRaw = totalButir * 5;  // all BS=5
+    return Math.round(((rawSum - minRaw) / (maxRaw - minRaw)) * (100 - 45) + 45);
+}
+
+function getGradeLabel(score) {
+    if (score >= 85) return { label: 'A',  color: '#059669' };
+    if (score >= 75) return { label: 'B',  color: '#2563EB' };
+    if (score >= 65) return { label: 'C',  color: '#D97706' };
+    if (score >= 55) return { label: 'D',  color: '#EF4444' };
+    return                        { label: 'E',  color: '#DC2626' };
+}
+
+export default function DosenInputNilai() {
+    const [students, setStudents]   = useState([]); // mahasiswa bimbingan
+    const [aspeks, setAspeks]       = useState([]);
+    const [loading, setLoading]     = useState(true);
+
+    const [selectedStudent, setSelectedStudent] = useState('');
+    const [internshipId, setInternshipId]       = useState('');
+    const [existingNilai, setExistingNilai]     = useState({});  // { butir_id: nilai }
+    const [scores, setScores]                   = useState({});  // { butir_id: nilai }
+    const [saving, setSaving]                   = useState(false);
+
+    useEffect(() => { fetchData(); }, []);
+
+    const fetchData = async () => {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const [{ data: intData }, { data: aspekData }] = await Promise.all([
+            supabase.from('internships').select(`
+                id, student_id,
+                student:users_profile!internships_student_id_fkey(full_name, identifier)
+            `).eq('dosen_id', user.id).eq('status', 'approved'),
+            supabase.from('aspek_penilaian')
+                .select('*, butir_penilaian(id, nomor, deskripsi, urutan)')
+                .order('urutan'),
+        ]);
+
+        if (intData) setStudents(intData.map(i => ({ ...i, ...i.student })));
+        if (aspekData) {
+            setAspeks(aspekData.map(a => ({
+                ...a,
+                butir_penilaian: (a.butir_penilaian || []).sort((x,y) => x.urutan - y.urutan)
+            })));
+        }
+        setLoading(false);
+    };
+
+    const handleSelectStudent = async (internship) => {
+        setSelectedStudent(internship.id);
+        setInternshipId(internship.id);
+
+        // Load existing nilai
+        const { data } = await supabase.from('penilaian_magang')
+            .select('butir_id, nilai')
+            .eq('internship_id', internship.id);
+
+        const map = {};
+        if (data) data.forEach(n => { map[n.butir_id] = n.nilai; });
+        setExistingNilai(map);
+        setScores({ ...map });
+    };
+
+    const setScore = (butirId, val) => setScores(prev => ({ ...prev, [butirId]: val }));
+
+    const totalButir = aspeks.reduce((s, a) => s + (a.butir_penilaian?.length || 0), 0);
+    const rawSum     = Object.values(scores).reduce((s, v) => s + v, 0);
+    const answeredCount = Object.keys(scores).length;
+    const finalScore  = answeredCount === totalButir ? convertToFinalScore(rawSum, totalButir) : null;
+    const gradeLabel  = finalScore ? getGradeLabel(finalScore) : null;
+
+    const handleSave = async () => {
+        if (!internshipId) { toast.error('Pilih mahasiswa terlebih dahulu!'); return; }
+        if (answeredCount < totalButir) {
+            toast.error(`Masih ada ${totalButir - answeredCount} butir yang belum dinilai!`); return;
+        }
+
+        setSaving(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        const studentInternship = students.find(s => s.id === internshipId);
+
+        try {
+            // Upsert semua nilai
+            const upsertData = Object.entries(scores).map(([butir_id, nilai]) => ({
+                internship_id: internshipId,
+                student_id:    studentInternship.student_id,
+                dosen_id:      user.id,
+                butir_id,
+                nilai,
+                updated_at:    new Date().toISOString(),
+            }));
+
+            const { error } = await supabase.from('penilaian_magang').upsert(upsertData, { onConflict: 'internship_id,butir_id' });
+            if (error) throw error;
+
+            setExistingNilai({ ...scores });
+            toast.success(`Nilai berhasil disimpan! Skor akhir: ${finalScore}`);
+        } catch (err) {
+            toast.error('Gagal menyimpan nilai: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const selectedStudentData = students.find(s => s.id === selectedStudent);
+
+    return (
+        <div>
+            <div style={{ marginBottom: '20px' }}>
+                <h1 style={{ fontSize: '1.6rem', marginBottom: '4px' }}>Input Nilai Magang</h1>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Berikan penilaian untuk setiap butir per mahasiswa bimbingan Anda.</p>
+            </div>
+
+            {loading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat data...</div>
+            ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '20px', alignItems: 'flex-start' }}>
+
+                    {/* Left: pilih mahasiswa */}
+                    <div>
+                        <div className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden', position: 'sticky', top: '80px' }}>
+                            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', backgroundColor: '#F8FAFC' }}>
+                                <p style={{ margin: 0, fontWeight: 600, fontSize: '0.88rem' }}>Mahasiswa Bimbingan</p>
+                                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>{students.length} mahasiswa aktif</p>
+                            </div>
+                            {students.length === 0 ? (
+                                <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    <AlertCircle size={28} style={{ margin: '0 auto 8px' }} strokeWidth={1.5} />
+                                    Belum ada mahasiswa bimbingan aktif.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    {students.map(st => {
+                                        const isSelected = selectedStudent === st.id;
+                                        const hasNilai   = Object.keys(existingNilai).length > 0 && isSelected;
+                                        return (
+                                            <button key={st.id} onClick={() => handleSelectStudent(st)}
+                                                style={{
+                                                    padding: '12px 16px', border: 'none', cursor: 'pointer', textAlign: 'left',
+                                                    borderBottom: '1px solid var(--border)',
+                                                    backgroundColor: isSelected ? 'var(--primary-light, #FFF0E6)' : 'white',
+                                                    borderLeft: isSelected ? '3px solid var(--primary)' : '3px solid transparent',
+                                                    transition: 'all 0.15s'
+                                                }}
+                                                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.backgroundColor = '#F9FAFB'; }}
+                                                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.backgroundColor = 'white'; }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ width: '30px', height: '30px', borderRadius: '6px', backgroundColor: isSelected ? 'var(--primary)' : '#1b1b1f', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.82rem', flexShrink: 0 }}>
+                                                        {st.full_name?.charAt(0) || '?'}
+                                                    </div>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: isSelected ? 'var(--primary)' : 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {st.full_name}
+                                                        </p>
+                                                        <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)' }}>{st.identifier || 'N/A'}</p>
+                                                    </div>
+                                                    {isSelected && Object.keys(existingNilai).length > 0 && (
+                                                        <CheckCircle2 size={14} color="#059669" style={{ flexShrink: 0, marginLeft: 'auto' }} />
+                                                    )}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right: form penilaian */}
+                    <div>
+                        {!selectedStudent ? (
+                            <div className="glass-panel" style={{ backgroundColor: 'white', padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <User size={40} strokeWidth={1.2} style={{ margin: '0 auto 12px' }} />
+                                <p>Pilih mahasiswa dari panel kiri untuk mulai memberi nilai.</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Score summary bar */}
+                                <div style={{ backgroundColor: 'white', border: '1px solid var(--border)', borderRadius: '8px', padding: '14px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                                    <div>
+                                        <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>{selectedStudentData?.full_name}</p>
+                                        <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)' }}>NIM: {selectedStudentData?.identifier}</p>
+                                    </div>
+                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Diisi</p>
+                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: answeredCount === totalButir ? '#059669' : 'var(--primary)' }}>{answeredCount}/{totalButir}</p>
+                                        </div>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Skor Mentah</p>
+                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>{rawSum}</p>
+                                        </div>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Nilai Akhir</p>
+                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1.3rem', color: gradeLabel?.color || 'var(--text-muted)' }}>
+                                                {finalScore ?? '—'}
+                                            </p>
+                                        </div>
+                                        {gradeLabel && (
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem', backgroundColor: gradeLabel.color + '20', color: gradeLabel.color }}>
+                                                {gradeLabel.label}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Aspek + Butir table */}
+                                {aspeks.map((aspek, ai) => {
+                                    const aspekRaw  = (aspek.butir_penilaian || []).reduce((s, b) => s + (scores[b.id] || 0), 0);
+                                    const aspekFilled = (aspek.butir_penilaian || []).filter(b => scores[b.id]).length;
+                                    return (
+                                        <div key={aspek.id} className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden', marginBottom: '10px' }}>
+                                            {/* Aspek header */}
+                                            <div style={{ padding: '11px 18px', backgroundColor: '#1b1b1f', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white', padding: '2px 10px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                                        {aspek.nomor}
+                                                    </span>
+                                                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white' }}>{aspek.nama}</span>
+                                                </div>
+                                                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>
+                                                    {aspekFilled}/{aspek.butir_penilaian?.length} · Skor: {aspekRaw}
+                                                </span>
+                                            </div>
+
+                                            {/* Butir rows */}
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: '#F8FAFC' }}>
+                                                        <th style={{ padding: '8px 16px', width: '40px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', textAlign: 'left' }}>No</th>
+                                                        <th style={{ padding: '8px 16px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem', textAlign: 'left' }}>Unsur yang Dinilai</th>
+                                                        {SKALA.map(s => (
+                                                            <th key={s.value} style={{ padding: '8px', width: '50px', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.72rem', textAlign: 'center' }} title={s.title}>{s.label}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(aspek.butir_penilaian || []).map((butir, bi) => {
+                                                        const val = scores[butir.id];
+                                                        return (
+                                                            <tr key={butir.id} style={{ borderTop: '1px solid var(--border)' }}
+                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}>
+                                                                <td style={{ padding: '12px 16px', fontSize: '0.83rem', color: 'var(--text-muted)', fontWeight: 600 }}>{bi + 1}</td>
+                                                                <td style={{ padding: '12px 16px', fontSize: '0.87rem', color: 'var(--text-main)' }}>{butir.deskripsi}</td>
+                                                                {SKALA.map(s => {
+                                                                    const isSelected = val === s.value;
+                                                                    return (
+                                                                        <td key={s.value} style={{ padding: '10px 6px', textAlign: 'center' }}>
+                                                                            <button
+                                                                                onClick={() => setScore(butir.id, s.value)}
+                                                                                title={`${s.value} – ${s.title}`}
+                                                                                style={{
+                                                                                    width: '36px', height: '36px', borderRadius: '8px', border: '2px solid',
+                                                                                    cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem', transition: 'all 0.1s',
+                                                                                    borderColor: isSelected ? s.color : 'var(--border)',
+                                                                                    backgroundColor: isSelected ? s.bg : 'white',
+                                                                                    color: isSelected ? s.color : 'var(--text-muted)',
+                                                                                    transform: isSelected ? 'scale(1.12)' : 'scale(1)',
+                                                                                    boxShadow: isSelected ? `0 2px 8px ${s.color}40` : 'none'
+                                                                                }}
+                                                                            >
+                                                                                {s.label}
+                                                                            </button>
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Save button */}
+                                <div style={{ position: 'sticky', bottom: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                                    {answeredCount < totalButir && (
+                                        <div style={{ padding: '10px 16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', fontSize: '0.83rem', color: '#D97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <AlertCircle size={14} /> {totalButir - answeredCount} butir belum dinilai
+                                        </div>
+                                    )}
+                                    <button onClick={handleSave} disabled={saving} className="btn-primary"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '0.88rem', boxShadow: '0 4px 12px rgba(246,130,31,0.35)' }}>
+                                        <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan Nilai'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}

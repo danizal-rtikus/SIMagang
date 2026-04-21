@@ -18,6 +18,7 @@ import MhsDailyReports from './pages/mahasiswa/DailyReports';
 import MhsPrintDailyReports from './pages/mahasiswa/PrintDailyReports';
 import MhsMonthlyReports from './pages/mahasiswa/MonthlyReports';
 import MhsFinalReports from './pages/mahasiswa/FinalReports';
+import MhsNilaiMagang from './pages/mahasiswa/NilaiMagang';
 import Profile from './pages/Profile';
 
 // Import Admin Components
@@ -30,12 +31,14 @@ import AdminDailyReports from './pages/dosen/DailyReports'; // Reuse komponen do
 import AdminMonthlyReports from './pages/admin/MonthlyReports';
 import AdminFinalReports from './pages/admin/FinalReports';
 import AdminReportTemplates from './pages/admin/ReportTemplates';
+import AdminPenilaianAspek from './pages/admin/PenilaianAspek';
 
 // Import Dosen Components
 import DosenDailyReports from './pages/dosen/DailyReports';
 import DosenMonthlyReports from './pages/dosen/MonthlyReports';
 import DosenFinalReports from './pages/dosen/FinalReports';
 import DosenMap from './pages/dosen/MapBimbingan';
+import DosenInputNilai from './pages/dosen/InputNilai';
 
 // Admin Placeholders
 // (Sudah diimport di atas)
@@ -92,6 +95,7 @@ function App() {
           <Route path="admin/monthly-reports" element={<AdminMonthlyReports />} />
           <Route path="admin/final-reports" element={<AdminFinalReports />} />
           <Route path="admin/report-templates" element={<AdminReportTemplates />} />
+          <Route path="admin/penilaian-aspek" element={<AdminPenilaianAspek />} />
 
           {/* Menu Dosen */}
           <Route path="dosen/announcements" element={<Pengumuman />} />
@@ -99,6 +103,7 @@ function App() {
           <Route path="dosen/monthly-reports" element={<DosenMonthlyReports />} />
           <Route path="dosen/final-reports" element={<DosenFinalReports />} />
           <Route path="dosen/map" element={<DosenMap />} />
+          <Route path="dosen/input-nilai" element={<DosenInputNilai />} />
 
           {/* Menu Mahasiswa */}
           <Route path="mahasiswa/announcements" element={<Pengumuman />} />
@@ -107,6 +112,7 @@ function App() {
           <Route path="mahasiswa/daily-reports/print" element={<MhsPrintDailyReports />} />
           <Route path="mahasiswa/monthly-reports" element={<MhsMonthlyReports />} />
           <Route path="mahasiswa/final-reports" element={<MhsFinalReports />} />
+          <Route path="mahasiswa/nilai" element={<MhsNilaiMagang />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

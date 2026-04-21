@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Briefcase, FileText, Calendar,
     Camera, ChevronDown, MapPin, Megaphone, BookOpen,
-    PanelLeftClose, PanelLeft
+    PanelLeftClose, PanelLeft, Award, Star
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -58,6 +58,13 @@ export default function Sidebar({ role, isOpen, setIsOpen, collapsed, setCollaps
                         ]
                     },
                     {
+                        name: 'Penilaian',
+                        icon: <Award size={18} />,
+                        subItems: [
+                            { name: 'Aspek & Butir', path: '/admin/penilaian-aspek', icon: <Star size={16} /> },
+                        ]
+                    },
+                    {
                         name: 'Lokasi',
                         icon: <Map size={18} />,
                         subItems: [
@@ -76,6 +83,13 @@ export default function Sidebar({ role, isOpen, setIsOpen, collapsed, setCollaps
                             { name: 'Laporan Harian', path: '/dosen/daily-reports', icon: <FileText size={16} /> },
                             { name: 'Laporan Bulanan', path: '/dosen/monthly-reports', icon: <Calendar size={16} /> },
                             { name: 'Laporan Akhir', path: '/dosen/final-reports', icon: <Briefcase size={16} /> },
+                        ]
+                    },
+                    {
+                        name: 'Penilaian',
+                        icon: <Award size={18} />,
+                        subItems: [
+                            { name: 'Input Nilai', path: '/dosen/input-nilai', icon: <Star size={16} /> },
                         ]
                     },
                     {
@@ -100,6 +114,7 @@ export default function Sidebar({ role, isOpen, setIsOpen, collapsed, setCollaps
                             { name: 'Laporan Akhir', path: '/mahasiswa/final-reports', icon: <Briefcase size={16} /> },
                         ]
                     },
+                    { name: 'Nilai Magang', path: '/mahasiswa/nilai', icon: <Award size={18} /> },
                 ];
             default:
                 return [];
