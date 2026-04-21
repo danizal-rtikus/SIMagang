@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, CheckCircle, Edit3, Eye, X, ExternalLink } from 'lucide-react';
+import { FileText, CheckCircle, Edit3, Eye, X, ExternalLink, Clock, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '../../components/Skeleton';
 import TemplateSection from '../../components/TemplateSection';
@@ -15,6 +15,7 @@ export default function DosenMonthlyReports() {
     const [feedback, setFeedback] = useState('');
     const [statusVal, setStatusVal] = useState('approved');
     const [viewUrl, setViewUrl] = useState(null); // PDF iframe viewer
+    const [historyOpen, setHistoryOpen] = useState({}); // { studentId_month: bool }
 
     useEffect(() => {
         fetchData();
@@ -178,12 +179,19 @@ export default function DosenMonthlyReports() {
                                                         backgroundColor: circleColor,
                                                         border: `4px solid ${isSubmitted ? 'transparent' : borderColor}`,
                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        color: iconColor, fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '16px',
+                                                        color: iconColor, fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '8px',
                                                         boxShadow: isSubmitted ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
-                                                        transition: 'all 0.3s ease'
+                                                        transition: 'all 0.3s ease', position: 'relative'
                                                     }}>
                                                         {isApproved ? <CheckCircle size={24} /> : month}
                                                     </div>
+
+                                                    {/* Badge revisi */}
+                                                    {report && Array.isArray(report.revision_history) && report.revision_history.length > 0 && (
+                                                        <span style={{ fontSize: '0.62rem', backgroundColor: '#FEE2E2', color: '#DC2626', padding: '1px 6px', borderRadius: '10px', fontWeight: 700, marginBottom: '4px' }}>
+                                                            Revisi {report.revision_history.length}x
+                                                        </span>
+                                                    )}
 
                                                     {/* Detail Teks dan Tombol */}
                                                     <div style={{ textAlign: 'center' }}>
@@ -225,44 +233,84 @@ export default function DosenMonthlyReports() {
             </div>
 
             {/* Modal Reviu */}
-            {showModal && selectedReport && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', backgroundColor: 'white', padding: '32px' }}>
-                        <h2 style={{ marginBottom: '8px' }}>Reviu Laporan Bulanan</h2>
-                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Mahasiswa: {students.find(s => s.id === selectedReport.student_id)?.name} (Bulan ke-{selectedReport.month_number})</p>
+            {showModal && selectedReport && (() => {
+                const history = Array.isArray(selectedReport.revision_history) ? selectedReport.revision_history : [];
+                const student = students.find(s => s.id === selectedReport.student_id);
+                return (
+                    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                        <div className="glass-panel" style={{ width: '100%', maxWidth: '540px', backgroundColor: 'white', padding: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+                            <h2 style={{ marginBottom: '4px' }}>Reviu Laporan Bulanan</h2>
+                            <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '0.88rem' }}>
+                                {student?.name} ({student?.nim}) · Bulan ke-{selectedReport.month_number}
+                                {history.length > 0 && (
+                                    <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#FEE2E2', color: '#DC2626', fontSize: '0.75rem', fontWeight: 700 }}>
+                                        Sudah revisi {history.length}x
+                                    </span>
+                                )}
+                            </p>
 
-                        <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Keputusan Status</label>
-                                <div style={{ display: 'flex', gap: '16px' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                        <input type="radio" value="approved" checked={statusVal === 'approved'} onChange={(e) => setStatusVal(e.target.value)} />
-                                        <CheckCircle size={18} color="#10B981" /> Setujui
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                        <input type="radio" value="revision" checked={statusVal === 'revision'} onChange={(e) => setStatusVal(e.target.value)} />
-                                        <Edit3 size={18} color="#EF4444" /> Minta Revisi
-                                    </label>
+                            {/* Riwayat revisi (jika ada) */}
+                            {history.length > 0 && (
+                                <div style={{ marginBottom: '20px', backgroundColor: '#F8FAFC', border: '1px solid var(--border)', borderRadius: '8px', padding: '14px 16px' }}>
+                                    <p style={{ margin: '0 0 10px', fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <Clock size={13} /> Riwayat Catatan Revisi
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {[...history].reverse().map((h, i) => (
+                                            <div key={i} style={{ padding: '10px 12px', backgroundColor: 'white', borderRadius: '6px', borderLeft: '3px solid #FECACA' }}>
+                                                <p style={{ margin: '0 0 3px', fontSize: '0.72rem', color: '#DC2626', fontWeight: 700 }}>
+                                                    Catatan Revisi ke-{h.round} · {new Date(h.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </p>
+                                                <p style={{ margin: 0, fontSize: '0.82rem', color: '#475569', whiteSpace: 'pre-wrap' }}>{h.note}</p>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Catatan Pembimbing (Opsional)</label>
-                                <textarea
-                                    className="input-field" rows="3"
-                                    value={feedback} onChange={(e) => setFeedback(e.target.value)}
-                                    placeholder="Tambahkan masukan atau arahan perbaikan file PDF..."
-                                ></textarea>
-                            </div>
+                            <form onSubmit={handleReviewSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Keputusan Status</label>
+                                    <div style={{ display: 'flex', gap: '16px' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                            <input type="radio" value="approved" checked={statusVal === 'approved'} onChange={(e) => setStatusVal(e.target.value)} />
+                                            <CheckCircle size={18} color="#10B981" /> Setujui
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                            <input type="radio" value="revision" checked={statusVal === 'revision'} onChange={(e) => setStatusVal(e.target.value)} />
+                                            <Edit3 size={18} color="#EF4444" /> Minta Revisi
+                                        </label>
+                                    </div>
+                                </div>
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                                <button type="button" onClick={() => setShowModal(false)} className="input-field" style={{ width: 'auto', backgroundColor: '#f1f5f9' }}>Batal</button>
-                                <button type="submit" className="btn-primary">Simpan Reviu</button>
-                            </div>
-                        </form>
+                                {statusVal === 'revision' && (
+                                    <div style={{ padding: '10px 14px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '6px', fontSize: '0.82rem', color: '#92400E', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                                        <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                                        Catatan yang Anda tulis di bawah akan terlihat oleh mahasiswa sebagai instruksi perbaikan.
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                                        Catatan Pembimbing {statusVal === 'revision' ? <span style={{ color: '#EF4444' }}>(wajib diisi)</span> : '(Opsional)'}
+                                    </label>
+                                    <textarea
+                                        className="input-field" rows="3"
+                                        value={feedback} onChange={(e) => setFeedback(e.target.value)}
+                                        placeholder={statusVal === 'revision' ? 'Jelaskan apa yang perlu diperbaiki mahasiswa...' : 'Tambahkan masukan atau arahan perbaikan file PDF...'}
+                                        required={statusVal === 'revision'}
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+                                    <button type="button" onClick={() => setShowModal(false)} className="input-field" style={{ width: 'auto', backgroundColor: '#f1f5f9' }}>Batal</button>
+                                    <button type="submit" className="btn-primary">Simpan Reviu</button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* PDF Viewer iframe */}
             {viewUrl && (
