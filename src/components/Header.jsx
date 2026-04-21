@@ -1,131 +1,201 @@
 import React from 'react';
-import { User, Menu, ChevronDown, Settings, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { User, Menu, ChevronDown, Settings, LogOut, Bell } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+
+// Build breadcrumb label from path
+const getBreadcrumb = (pathname) => {
+    const map = {
+        '/': 'Dashboard',
+        '/profile': 'Kelola Profil',
+        '/admin/users': 'Manajemen User',
+        '/admin/partners': 'Manajemen Mitra',
+        '/admin/plotting': 'Plotting Magang',
+        '/admin/announcements': 'Kelola Pengumuman',
+        '/admin/daily-reports': 'Laporan Harian',
+        '/admin/monthly-reports': 'Laporan Bulanan',
+        '/admin/final-reports': 'Laporan Akhir',
+        '/admin/report-templates': 'Template Laporan',
+        '/admin/map': 'Map Lokasi Mahasiswa',
+        '/dosen/announcements': 'Pengumuman',
+        '/dosen/daily-reports': 'Laporan Harian',
+        '/dosen/monthly-reports': 'Laporan Bulanan',
+        '/dosen/final-reports': 'Laporan Akhir',
+        '/dosen/map': 'Map Lokasi Mahasiswa',
+        '/mahasiswa/announcements': 'Pengumuman',
+        '/mahasiswa/attendance': 'Presensi Harian',
+        '/mahasiswa/daily-reports': 'Laporan Harian',
+        '/mahasiswa/monthly-reports': 'Laporan Bulanan',
+        '/mahasiswa/final-reports': 'Laporan Akhir',
+    };
+    return map[pathname] || 'SIMagang';
+};
+
+const roleLabel = { admin: 'Administrator', dosen: 'Dosen Pembimbing', mahasiswa: 'Mahasiswa' };
 
 export default function Header({ userProfile, onMenuClick }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState(null);
     const dropdownRef = React.useRef(null);
 
-    // Deteksi klik diluar dropdown untuk menutup menunya
     React.useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target))
                 setDropdownOpen(false);
-            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Load Image Avatar URL jika ada
-    const loadAvatar = React.useCallback(() => {
+    React.useEffect(() => {
         if (userProfile?.avatar_url) {
-            const { data } = supabase.storage
-                .from('simagang-files')
-                .getPublicUrl(userProfile.avatar_url);
+            const { data } = supabase.storage.from('simagang-files').getPublicUrl(userProfile.avatar_url);
             setAvatarUrl(data.publicUrl);
         } else {
             setAvatarUrl(null);
         }
     }, [userProfile]);
 
-    // Memuat ulang avatar saat komponen mendeteksi perubahan prop userProfile
-    React.useEffect(() => {
-        loadAvatar();
-    }, [loadAvatar]);
-
     const handleLogout = async () => {
         await supabase.auth.signOut();
         navigate('/login');
     };
+
+    const currentPage = getBreadcrumb(location.pathname);
+    const role = userProfile?.role;
+
     return (
         <header className="header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <button 
+            {/* Left: Mobile menu + Breadcrumb */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
                     onClick={onMenuClick}
                     className="mobile-only-btn"
-                    style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-main)' }}
+                    style={{
+                        display: 'none', background: 'none', border: 'none', cursor: 'pointer',
+                        padding: '6px', color: 'var(--text-muted)', borderRadius: '6px',
+                        transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
                 >
-                    <Menu size={24} />
+                    <Menu size={20} />
                 </button>
-                <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 600 }}>
-                    Sistem Informasi Magang Mitra
-                </h2>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        {roleLabel[role] || 'SIMagang'}
+                    </span>
+                    <span style={{ color: 'var(--border)', fontSize: '0.8rem' }}>/</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                        {currentPage}
+                    </span>
+                </div>
             </div>
 
+            {/* Right: Profile dropdown */}
             <div style={{ position: 'relative' }} ref={dropdownRef}>
-                <div 
-                    onClick={() => setDropdownOpen(!dropdownOpen)}
-                    style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px', transition: 'background 0.2s ease' }}
-                    className="header-profile-trigger"
+                <button
+                    onClick={() => setDropdownOpen(o => !o)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '5px 10px 5px 5px', borderRadius: '8px', border: '1px solid var(--border)',
+                        background: 'white', cursor: 'pointer', transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = '#D1D5DB'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
                 >
-                    <div className="header-user-info" style={{ textAlign: 'right' }}>
-                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.95rem' }}>
-                            {userProfile?.full_name || 'Loading...'}
+                    {/* Avatar */}
+                    <div style={{
+                        width: '30px', height: '30px', borderRadius: '6px',
+                        backgroundColor: '#1b1b1f', color: 'white',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        overflow: 'hidden', flexShrink: 0
+                    }}>
+                        {avatarUrl
+                            ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <User size={16} />
+                        }
+                    </div>
+
+                    {/* Name */}
+                    <div className="header-user-info" style={{ textAlign: 'left', lineHeight: 1.2 }}>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-main)' }}>
+                            {userProfile?.full_name || '—'}
                         </p>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                            {userProfile?.role || 'User'}
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                            {role || ''}
                         </span>
                     </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                            width: '40px', height: '40px', borderRadius: '50%',
-                            backgroundColor: 'var(--primary)', color: 'white',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            overflow: 'hidden', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                        }}>
-                            {avatarUrl ? (
-                                <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <User size={20} />
-                            )}
-                        </div>
-                        <ChevronDown size={16} color="var(--text-muted)" style={{ transition: 'transform 0.2s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-                    </div>
-                </div>
 
-                {/* Dropdown Menu */}
+                    <ChevronDown
+                        size={14}
+                        color="var(--text-muted)"
+                        style={{ transition: 'transform 0.2s', transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    />
+                </button>
+
+                {/* Dropdown */}
                 {dropdownOpen && (
                     <div style={{
-                        position: 'absolute', top: 'calc(100% + 8px)', right: '0',
-                        backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        border: '1px solid var(--border)', minWidth: '200px', zIndex: 50,
-                        padding: '8px 0', display: 'flex', flexDirection: 'column'
+                        position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                        backgroundColor: 'white', borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)', border: '1px solid var(--border)',
+                        minWidth: '200px', zIndex: 50, overflow: 'hidden',
                     }}>
-                        <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>
-                            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>{userProfile?.full_name}</p>
-                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>{userProfile?.email}</p>
+                        {/* User info */}
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', backgroundColor: '#FAFAFA' }}>
+                            <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                                {userProfile?.full_name}
+                            </p>
+                            <p style={{ margin: '2px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {userProfile?.email}
+                            </p>
                         </div>
-                        
-                        <button 
-                            onClick={() => { setDropdownOpen(false); navigate('/profile'); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '0.9rem', color: 'var(--text-main)' }}
-                            className="dropdown-item"
-                        >
-                            <Settings size={16} /> Kelola Profil
-                        </button>
-                        
-                        <button 
-                            onClick={handleLogout}
-                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', border: 'none', background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '0.9rem', color: '#EF4444' }}
-                            className="dropdown-item"
-                        >
-                            <LogOut size={16} /> Keluar
-                        </button>
+
+                        <div style={{ padding: '6px' }}>
+                            <button
+                                onClick={() => { setDropdownOpen(false); navigate('/profile'); }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    padding: '8px 12px', width: '100%', textAlign: 'left',
+                                    border: 'none', background: 'none', cursor: 'pointer',
+                                    fontSize: '0.84rem', color: 'var(--text-main)', borderRadius: '6px',
+                                    transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                            >
+                                <Settings size={15} color="var(--text-muted)" /> Kelola Profil
+                            </button>
+
+                            <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
+
+                            <button
+                                onClick={handleLogout}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    padding: '8px 12px', width: '100%', textAlign: 'left',
+                                    border: 'none', background: 'none', cursor: 'pointer',
+                                    fontSize: '0.84rem', color: '#EF4444', borderRadius: '6px',
+                                    transition: 'background 0.15s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                            >
+                                <LogOut size={15} /> Keluar
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
+
             <style>{`
                 @media (max-width: 768px) {
-                    .mobile-only-btn { display: block !important; }
-                    .header h2 { font-size: 0.95rem !important; }
+                    .mobile-only-btn { display: flex !important; }
                 }
-                .header-profile-trigger:hover { background-color: #F8FAFC !important; }
-                .dropdown-item:hover { background-color: #F8FAFC !important; }
             `}</style>
         </header>
     );
