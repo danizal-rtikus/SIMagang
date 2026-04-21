@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { FileText, CheckCircle, Edit3, ArrowRight } from 'lucide-react';
+import { FileText, CheckCircle, Edit3, Eye, X, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { Skeleton } from '../../components/Skeleton';
 
 export default function DosenFinalReports() {
     const [reports, setReports] = useState([]);
@@ -11,6 +12,7 @@ export default function DosenFinalReports() {
     const [selectedReport, setSelectedReport] = useState(null);
     const [feedback, setFeedback] = useState('');
     const [statusVal, setStatusVal] = useState('approved');
+    const [viewUrl, setViewUrl] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -63,6 +65,12 @@ export default function DosenFinalReports() {
         setLoading(false);
     };
 
+    const handleView = (report) => {
+        if (!report.file_url) return toast.error('Tidak ada file PDF.');
+        const { data } = supabase.storage.from('simagang-files').getPublicUrl(report.file_url);
+        setViewUrl(data.publicUrl);
+    };
+
     const handleOpenReview = (report) => {
         setSelectedReport(report);
         setFeedback(report.note_dosen || '');
@@ -95,7 +103,16 @@ export default function DosenFinalReports() {
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
                 {loading ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat data laporan akhir...</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px', padding: '24px' }}>
+                        {[1,2,3].map(i => (
+                            <div key={i} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', backgroundColor: '#F8FAFC' }}>
+                                <Skeleton height="18px" width="60%" style={{ marginBottom: '8px' }} />
+                                <Skeleton height="12px" width="40%" style={{ marginBottom: '20px' }} />
+                                <Skeleton height="48px" radius="8px" style={{ marginBottom: '12px' }} />
+                                <Skeleton height="36px" radius="8px" />
+                            </div>
+                        ))}
+                    </div>
                 ) : reports.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada laporan akhir yang diunggah oleh mahasiswa bimbingan Anda.</div>
                 ) : (
@@ -120,9 +137,9 @@ export default function DosenFinalReports() {
                                 </div>
 
                                 <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '16px' }}>
-                                    <a href={report.file_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', fontWeight: 500, fontSize: '0.95rem' }}>
-                                        <FileText size={18} /> UNDUH PDF LAPORAN
-                                    </a>
+                                    <button onClick={() => handleView(report)} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', fontWeight: 500, fontSize: '0.95rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, width: '100%' }}>
+                                        <Eye size={18} /> LIHAT PDF LAPORAN
+                                    </button>
                                 </div>
 
                                 {report.note_dosen && (
@@ -177,6 +194,24 @@ export default function DosenFinalReports() {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+
+            {/* PDF Viewer iframe */}
+            {viewUrl && (
+                <div style={{ position:'fixed',inset:0,backgroundColor:'rgba(0,0,0,0.75)',zIndex:60,display:'flex',flexDirection:'column' }}>
+                    <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 20px',backgroundColor:'#1E293B',color:'white' }}>
+                        <span style={{ fontWeight:600 }}>📄 Pratinjau Laporan Akhir</span>
+                        <div style={{ display:'flex',gap:'10px' }}>
+                            <a href={viewUrl} target="_blank" rel="noopener noreferrer" style={{ display:'flex',alignItems:'center',gap:'6px',color:'#93C5FD',fontSize:'0.85rem',textDecoration:'none' }}>
+                                <ExternalLink size={15}/> Buka di Tab Baru
+                            </a>
+                            <button onClick={() => setViewUrl(null)} style={{ color:'white',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px' }}>
+                                <X size={20}/> Tutup
+                            </button>
+                        </div>
+                    </div>
+                    <iframe src={viewUrl} style={{ flex:1,border:'none',backgroundColor:'white' }} title="PDF Viewer" />
                 </div>
             )}
         </div>
