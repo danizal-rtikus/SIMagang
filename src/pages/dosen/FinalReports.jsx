@@ -68,8 +68,13 @@ export default function DosenFinalReports() {
 
     const handleView = (report) => {
         if (!report.file_url) return toast.error('Tidak ada file PDF.');
-        const { data } = supabase.storage.from('simagang-files').getPublicUrl(report.file_url);
-        setViewUrl(data.publicUrl);
+        // file_url bisa berupa full URL (dari mahasiswa) atau storage path (dari admin)
+        if (report.file_url.startsWith('http')) {
+            setViewUrl(report.file_url);
+        } else {
+            const { data } = supabase.storage.from('simagang-files').getPublicUrl(report.file_url);
+            setViewUrl(data.publicUrl);
+        }
     };
 
     const handleOpenReview = (report) => {

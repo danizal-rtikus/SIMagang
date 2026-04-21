@@ -51,10 +51,25 @@ export default function AdminFinalReports() {
     const totalPages = Math.max(1, Math.ceil(reports.length / PAGE_SIZE));
     const pagedReports = useMemo(() => reports.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE), [reports, page]);
 
+    // Helper: ekstrak path storage dari full URL atau gunakan langsung jika sudah path
+    const getStoragePath = (fileUrl) => {
+        if (!fileUrl) return null;
+        if (fileUrl.startsWith('http')) {
+            const marker = '/simagang-files/';
+            const idx = fileUrl.indexOf(marker);
+            return idx >= 0 ? fileUrl.slice(idx + marker.length) : null;
+        }
+        return fileUrl;
+    };
+
     const handleView = (report) => {
         if (!report.file_url) return toast.error('Tidak ada file PDF.');
-        const { data } = supabase.storage.from('simagang-files').getPublicUrl(report.file_url);
-        setViewUrl(data.publicUrl);
+        if (report.file_url.startsWith('http')) {
+            setViewUrl(report.file_url);
+        } else {
+            const { data } = supabase.storage.from('simagang-files').getPublicUrl(report.file_url);
+            setViewUrl(data.publicUrl);
+        }
     };
 
     const handleOpenAdd = () => {
@@ -115,8 +130,9 @@ export default function AdminFinalReports() {
     const handleDelete = async (report) => {
         const toastId = toast.loading('Menghapus...');
         try {
-            if (report.file_url) {
-                await supabase.storage.from('simagang-files').remove([report.file_url]);
+            const storagePath = getStoragePath(report.file_url);
+            if (storagePath) {
+                await supabase.storage.from('simagang-files').remove([storagePath]);
             }
             const { error } = await supabase.from('final_reports').delete().eq('id', report.id);
             if (error) throw error;

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     Plus, Archive, CheckCircle, Clock, Calendar,
-    ChevronRight, AlertTriangle, BookOpen, Unlock, Lock
+    AlertTriangle, BookOpen, Unlock, Lock, Edit3
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -35,6 +35,54 @@ function suggestNext(current) {
     }
 }
 
+// ── Reusable form fields ──────────────────────────────────────
+function PeriodeFormFields({ form, setForm }) {
+    const previewNama = `${(form.semester || 'ganjil').charAt(0).toUpperCase() + (form.semester || 'ganjil').slice(1)} ${form.tahun_akademik || '—'}`;
+    return (
+        <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Tahun Akademik</label>
+                    <input type="text" required className="input-field" placeholder="2024/2025"
+                        value={form.tahun_akademik || ''}
+                        onChange={e => setForm(p => ({ ...p, tahun_akademik: e.target.value }))} />
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Semester</label>
+                    <select required className="input-field" value={form.semester || 'ganjil'} onChange={e => setForm(p => ({ ...p, semester: e.target.value }))}>
+                        <option value="ganjil">Ganjil</option>
+                        <option value="genap">Genap</option>
+                    </select>
+                </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Tanggal Mulai</label>
+                    <input type="date" required className="input-field" value={form.tanggal_mulai || ''} onChange={e => setForm(p => ({ ...p, tanggal_mulai: e.target.value }))} />
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>
+                        Estimasi Selesai <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span>
+                    </label>
+                    <input type="date" className="input-field" value={form.tanggal_selesai || ''} onChange={e => setForm(p => ({ ...p, tanggal_selesai: e.target.value }))} />
+                </div>
+            </div>
+            <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>
+                    Keterangan <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span>
+                </label>
+                <textarea rows={2} className="input-field" placeholder="Mis: Semester praktik kerja lapangan angkatan 2022"
+                    value={form.keterangan || ''} onChange={e => setForm(p => ({ ...p, keterangan: e.target.value }))} />
+            </div>
+            {/* Preview nama */}
+            <div style={{ padding: '10px 14px', backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '6px', fontSize: '0.85rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CheckCircle size={14} />
+                Nama periode: <strong>{previewNama}</strong>
+            </div>
+        </>
+    );
+}
+
 export default function PeriodeAkademik() {
     const [periodes, setPeriodes]         = useState([]);
     const [activePeriode, setActivePeriode] = useState(null);
@@ -43,14 +91,12 @@ export default function PeriodeAkademik() {
     // Modal state
     const [showBukaModal, setShowBukaModal]     = useState(false);
     const [showArsipModal, setShowArsipModal]   = useState(false);
+    const [showEditModal, setShowEditModal]     = useState(false);
+    const [editTarget, setEditTarget]           = useState(null); // periode yang diedit
     const [saving, setSaving]                   = useState(false);
 
-    // Form untuk buka periode baru
-    const initForm = () => {
-        const s = suggestNext(activePeriode);
-        return { tahun_akademik: s.tahun, semester: s.semester, tanggal_mulai: '', tanggal_selesai: '', keterangan: '' };
-    };
-    const [form, setForm] = useState({});
+    const emptyForm = { tahun_akademik: '', semester: 'ganjil', tanggal_mulai: '', tanggal_selesai: '', keterangan: '' };
+    const [form, setForm] = useState(emptyForm);
 
     useEffect(() => { fetchPeriodes(); }, []);
 
@@ -68,12 +114,13 @@ export default function PeriodeAkademik() {
         setLoading(false);
     };
 
+    // ── Buka Periode Baru ────────────────────────────────────
     const handleBukaPeriode = () => {
-        setForm(initForm());
+        const s = suggestNext(activePeriode);
+        setForm({ tahun_akademik: s.tahun, semester: s.semester, tanggal_mulai: '', tanggal_selesai: '', keterangan: '' });
         setShowBukaModal(true);
     };
 
-    // ── Buka Periode Baru ────────────────────────────────────
     const savePeriodeBaru = async (e) => {
         e.preventDefault();
         if (activePeriode) {
@@ -103,6 +150,48 @@ export default function PeriodeAkademik() {
         } else {
             toast.success(`Periode "${nama}" berhasil dibuka!`);
             setShowBukaModal(false);
+            fetchPeriodes();
+        }
+    };
+
+    // ── Edit Periode ─────────────────────────────────────────
+    const handleEdit = (periode) => {
+        setEditTarget(periode);
+        setForm({
+            tahun_akademik:  periode.tahun_akademik  || '',
+            semester:        periode.semester        || 'ganjil',
+            tanggal_mulai:   periode.tanggal_mulai   || '',
+            tanggal_selesai: periode.tanggal_selesai || '',
+            keterangan:      periode.keterangan      || '',
+        });
+        setShowEditModal(true);
+    };
+
+    const saveEdit = async (e) => {
+        e.preventDefault();
+        if (!form.tahun_akademik || !form.semester || !form.tanggal_mulai) {
+            toast.error('Tahun akademik, semester, dan tanggal mulai wajib diisi!');
+            return;
+        }
+        setSaving(true);
+        const nama = `${form.semester.charAt(0).toUpperCase() + form.semester.slice(1)} ${form.tahun_akademik}`;
+        const { error } = await supabase.from('periode_akademik')
+            .update({
+                nama,
+                tahun_akademik:  form.tahun_akademik,
+                semester:        form.semester,
+                tanggal_mulai:   form.tanggal_mulai   || null,
+                tanggal_selesai: form.tanggal_selesai || null,
+                keterangan:      form.keterangan      || null,
+            })
+            .eq('id', editTarget.id);
+
+        setSaving(false);
+        if (error) toast.error('Gagal menyimpan perubahan: ' + error.message);
+        else {
+            toast.success(`Periode "${nama}" berhasil diperbarui!`);
+            setShowEditModal(false);
+            setEditTarget(null);
             fetchPeriodes();
         }
     };
@@ -156,9 +245,9 @@ export default function PeriodeAkademik() {
                     boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22C55E', boxShadow: '0 0 8px #22C55E', animation: 'pulse 2s infinite' }} />
+                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#22C55E', boxShadow: '0 0 8px #22C55E' }} />
                                 <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Periode Aktif</span>
                             </div>
                             <h2 style={{ color: 'white', fontSize: '1.8rem', fontWeight: 800, margin: '0 0 6px' }}>{activePeriode.nama}</h2>
@@ -178,7 +267,7 @@ export default function PeriodeAkademik() {
                                 <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem', marginTop: '8px' }}>{activePeriode.keterangan}</p>
                             )}
                         </div>
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
                             <span style={{
                                 padding: '4px 14px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700,
                                 backgroundColor: SEMESTER_META[activePeriode.semester]?.bg,
@@ -186,19 +275,33 @@ export default function PeriodeAkademik() {
                             }}>
                                 Semester {SEMESTER_META[activePeriode.semester]?.label}
                             </span>
+                            {/* ── Tombol Edit ── */}
+                            <button
+                                onClick={() => handleEdit(activePeriode)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '9px 16px', borderRadius: '7px', border: '1px solid rgba(255,255,255,0.2)',
+                                    background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)',
+                                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.15s'
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                            >
+                                <Edit3 size={14} /> Edit
+                            </button>
+                            {/* ── Tombol Arsipkan ── */}
                             <button
                                 onClick={() => setShowArsipModal(true)}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '6px',
                                     padding: '9px 18px', borderRadius: '7px', border: '1px solid rgba(239,68,68,0.5)',
                                     background: 'rgba(239,68,68,0.1)', color: '#FCA5A5',
-                                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
-                                    transition: 'all 0.15s'
+                                    cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, transition: 'all 0.15s'
                                 }}
                                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.25)'; e.currentTarget.style.borderColor = '#EF4444'; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; }}
                             >
-                                <Archive size={15} /> Arsipkan Periode
+                                <Archive size={15} /> Arsipkan
                             </button>
                         </div>
                     </div>
@@ -261,12 +364,60 @@ export default function PeriodeAkademik() {
                                     {p.keterangan && <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>{p.keterangan}</p>}
                                 </div>
 
-                                <Lock size={16} color="#CBD5E1" style={{ flexShrink: 0 }} />
+                                {/* Edit arsip + Lock icon */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                    <button
+                                        onClick={() => handleEdit(p)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.78rem', fontWeight: 500 }}
+                                    >
+                                        <Edit3 size={13} /> Edit
+                                    </button>
+                                    <Lock size={16} color="#CBD5E1" />
+                                </div>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* ── Modal: Edit Periode ─── */}
+            {showEditModal && editTarget && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div className="glass-panel" style={{ backgroundColor: 'white', padding: '32px', width: '100%', maxWidth: '480px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                            <Edit3 size={18} color="var(--primary)" />
+                            <h2 style={{ margin: 0, fontSize: '1.15rem' }}>Edit Periode</h2>
+                        </div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>
+                            Mengedit: <strong>{editTarget.nama}</strong>
+                            {editTarget.status === 'active' && (
+                                <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#D1FAE5', color: '#059669', fontSize: '0.75rem', fontWeight: 600 }}>
+                                    Aktif
+                                </span>
+                            )}
+                            {editTarget.status === 'archived' && (
+                                <span style={{ marginLeft: '8px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#F1F5F9', color: '#64748B', fontSize: '0.75rem', fontWeight: 600 }}>
+                                    Arsip
+                                </span>
+                            )}
+                        </p>
+
+                        <form onSubmit={saveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <PeriodeFormFields form={form} setForm={setForm} />
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
+                                <button type="button" onClick={() => { setShowEditModal(false); setEditTarget(null); }}
+                                    style={{ padding: '9px 18px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>
+                                    Batal
+                                </button>
+                                <button type="submit" disabled={saving} className="btn-primary">
+                                    {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* ── Modal: Buka Periode Baru ─── */}
             {showBukaModal && (
@@ -276,43 +427,7 @@ export default function PeriodeAkademik() {
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>Periode ini akan langsung menjadi periode aktif.</p>
 
                         <form onSubmit={savePeriodeBaru} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Tahun Akademik</label>
-                                    <input type="text" required className="input-field" placeholder="2024/2025"
-                                        value={form.tahun_akademik || ''}
-                                        onChange={e => setForm(p => ({ ...p, tahun_akademik: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Semester</label>
-                                    <select required className="input-field" value={form.semester || 'ganjil'} onChange={e => setForm(p => ({ ...p, semester: e.target.value }))}>
-                                        <option value="ganjil">Ganjil</option>
-                                        <option value="genap">Genap</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Tanggal Mulai</label>
-                                    <input type="date" required className="input-field" value={form.tanggal_mulai || ''} onChange={e => setForm(p => ({ ...p, tanggal_mulai: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Estimasi Selesai <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span></label>
-                                    <input type="date" className="input-field" value={form.tanggal_selesai || ''} onChange={e => setForm(p => ({ ...p, tanggal_selesai: e.target.value }))} />
-                                </div>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Keterangan <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span></label>
-                                <textarea rows={2} className="input-field" placeholder="Mis: Semester praktik kerja lapangan angkatan 2022"
-                                    value={form.keterangan || ''} onChange={e => setForm(p => ({ ...p, keterangan: e.target.value }))} />
-                            </div>
-
-                            {/* Preview nama */}
-                            <div style={{ padding: '10px 14px', backgroundColor: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: '6px', fontSize: '0.85rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <CheckCircle size={14} />
-                                Nama periode: <strong>{`${(form.semester||'ganjil').charAt(0).toUpperCase() + (form.semester||'ganjil').slice(1)} ${form.tahun_akademik || '—'}`}</strong>
-                            </div>
-
+                            <PeriodeFormFields form={form} setForm={setForm} />
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                 <button type="button" onClick={() => setShowBukaModal(false)} style={{ padding: '9px 18px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer' }}>Batal</button>
                                 <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Menyimpan...' : 'Buka Periode'}</button>
