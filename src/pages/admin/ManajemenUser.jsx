@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { User, Shield, Edit3, MapPin, UserPlus, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { Skeleton, SkeletonTableRow } from '../../components/Skeleton';
 
 export default function ManajemenUser() {
     const [users, setUsers] = useState([]);
@@ -180,7 +181,20 @@ export default function ManajemenUser() {
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
                 {loading ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat pengguna...</div>
+                    <div className="table-responsive-wrapper">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
+                                    {['Nama & Email', 'No. Identitas', 'Hak Akses (Role)', 'Terdaftar Pada', 'Aksi'].map(h => (
+                                        <th key={h} style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Array.from({ length: 8 }).map((_, i) => <SkeletonTableRow key={i} cols={5} />)}
+                            </tbody>
+                        </table>
+                    </div>
                 ) : (
                     <div className="table-responsive-wrapper">
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>

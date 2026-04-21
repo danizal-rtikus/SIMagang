@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Briefcase, Building, MapPin, Plus, Edit3, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { Skeleton } from '../../components/Skeleton';
 
 export default function ManajemenMitra() {
     const [partners, setPartners] = useState([]);
@@ -99,7 +100,24 @@ export default function ManajemenMitra() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
                 {loading ? (
-                    <p style={{ color: 'var(--text-muted)' }}>Memuat data mitra...</p>
+                    Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="glass-panel" style={{ padding: '24px', backgroundColor: 'white' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <Skeleton width="40px" height="40px" radius="8px" />
+                                    <div>
+                                        <Skeleton height="16px" width="140px" style={{ marginBottom: '6px' }} />
+                                        <Skeleton height="12px" width="100px" />
+                                    </div>
+                                </div>
+                                <Skeleton width="60px" height="28px" radius="8px" />
+                            </div>
+                            <div style={{ display: 'flex', gap: '16px', marginTop: '12px' }}>
+                                <Skeleton height="12px" width="80px" />
+                                <Skeleton height="12px" width="60px" />
+                            </div>
+                        </div>
+                    ))
                 ) : partners.length === 0 ? (
                     <p style={{ color: 'var(--text-muted)' }}>Belum ada mitra instansi terdaftar.</p>
                 ) : (

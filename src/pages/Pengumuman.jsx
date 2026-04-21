@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Megaphone, Calendar, Users } from 'lucide-react';
+import { Skeleton } from '../components/Skeleton';
 
 const renderTextWithLinks = (text) => {
     if (!text) return text;
@@ -49,7 +50,22 @@ export default function Pengumuman() {
             </div>
 
             {loading ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat pengumuman...</div>
+                <div style={{ display: 'grid', gap: '24px' }}>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} style={{ backgroundColor: 'white', borderRadius: '16px', borderLeft: '6px solid #E2E8F0', padding: '32px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                            <Skeleton height="22px" width="55%" style={{ marginBottom: '12px' }} />
+                            <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
+                                <Skeleton height="13px" width="140px" />
+                                <Skeleton height="13px" width="120px" />
+                            </div>
+                            <div style={{ backgroundColor: '#F8FAFC', borderRadius: '12px', padding: '24px' }}>
+                                <Skeleton height="14px" width="100%" style={{ marginBottom: '10px' }} />
+                                <Skeleton height="14px" width="90%" style={{ marginBottom: '10px' }} />
+                                <Skeleton height="14px" width="75%" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             ) : announcements.length === 0 ? (
                 <div className="glass-panel" style={{ padding: '60px 20px', textAlign: 'center', backgroundColor: 'white' }}>
                     <Megaphone size={48} color="var(--border)" style={{ margin: '0 auto 16px' }} />

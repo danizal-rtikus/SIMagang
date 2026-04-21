@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Megaphone, Plus, Edit3, Trash2, Eye, EyeOff, Users, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { Skeleton, SkeletonTableRow } from '../../components/Skeleton';
 
 const renderTextWithLinks = (text) => {
     if (!text) return text;
@@ -152,7 +153,20 @@ export default function ManajemenPengumuman() {
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
                 {loading ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat pengumuman...</div>
+                    <div className="table-responsive-wrapper">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
+                                    {['Status', 'Judul Info', 'Target Siaran', 'Tanggal Dibuat', 'Aksi'].map(h => (
+                                        <th key={h} style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Array.from({ length: 6 }).map((_, i) => <SkeletonTableRow key={i} cols={5} />)}
+                            </tbody>
+                        </table>
+                    </div>
                 ) : announcements.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada pengumuman disiarkan.</div>
                 ) : (
