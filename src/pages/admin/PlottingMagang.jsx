@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     Plus, Briefcase, CheckCircle, Trash2, Edit3, Search,
-    ChevronLeft, ChevronRight, User, GraduationCap, Building2
+    ChevronLeft, ChevronRight, User, GraduationCap, Building2,
+    AlertTriangle, Calendar, ChevronDown
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { SkeletonTableRow } from '../../components/Skeleton';
@@ -30,6 +31,9 @@ export default function PlottingMagang() {
     const [students, setStudents]       = useState([]);
     const [dosens, setDosens]           = useState([]);
     const [partners, setPartners]       = useState([]);
+    const [periodes, setPeriodes]        = useState([]);
+    const [activePeriode, setActivePeriode] = useState(null);
+    const [selectedPeriodeId, setSelectedPeriodeId] = useState('active'); // 'active' | uuid
     const [loading, setLoading]         = useState(true);
     const [search, setSearch]           = useState('');
     const [page, setPage]               = useState(1);
@@ -45,35 +49,58 @@ export default function PlottingMagang() {
 
     const fetchData = async () => {
         setLoading(true);
-        const [{ data: mhsData }, { data: dsnData }, { data: ptnData }, { data: intData }] = await Promise.all([
+
+        const [
+            { data: mhsData },
+            { data: dsnData },
+            { data: ptnData },
+            { data: intData },
+            { data: periodeData }
+        ] = await Promise.all([
             supabase.from('users_profile').select('*').eq('role', 'mahasiswa').order('full_name'),
             supabase.from('users_profile').select('*').eq('role', 'dosen').order('full_name'),
             supabase.from('partners').select('*').order('name'),
             supabase.from('internships').select(`
-                id, start_date, end_date, student_id, dosen_id, partner_id, company_name, status,
+                id, start_date, end_date, student_id, dosen_id, partner_id, company_name, status, periode_id,
                 student:users_profile!internships_student_id_fkey(full_name, identifier),
                 dosen:users_profile!internships_dosen_id_fkey(full_name),
                 partner:partners(name)
             `).order('created_at', { ascending: false }),
+            supabase.from('periode_akademik').select('*').order('created_at', { ascending: false }),
         ]);
+
         if (mhsData) setStudents(mhsData);
         if (dsnData) setDosens(dsnData);
         if (ptnData) setPartners(ptnData);
         if (intData) setInternships(intData);
+        if (periodeData) {
+            setPeriodes(periodeData);
+            const active = periodeData.find(p => p.status === 'active') || null;
+            setActivePeriode(active);
+            setSelectedPeriodeId(active?.id || (periodeData[0]?.id || 'all'));
+        }
         setLoading(false);
     };
 
-    // ── Filter + Search + Pagination ──────────────────────
+    // ── Filter by periode + Search ──────────────────────
     const filtered = useMemo(() => {
-        if (!search) return internships;
-        const q = search.toLowerCase();
-        return internships.filter(p =>
-            p.student?.full_name?.toLowerCase().includes(q) ||
-            p.student?.identifier?.toLowerCase().includes(q) ||
-            p.dosen?.full_name?.toLowerCase().includes(q) ||
-            (p.partner?.name || p.company_name || '').toLowerCase().includes(q)
-        );
-    }, [internships, search]);
+        let list = internships;
+        // filter periode
+        if (selectedPeriodeId && selectedPeriodeId !== 'all') {
+            list = list.filter(p => p.periode_id === selectedPeriodeId);
+        }
+        // filter search
+        if (search) {
+            const q = search.toLowerCase();
+            list = list.filter(p =>
+                p.student?.full_name?.toLowerCase().includes(q) ||
+                p.student?.identifier?.toLowerCase().includes(q) ||
+                p.dosen?.full_name?.toLowerCase().includes(q) ||
+                (p.partner?.name || p.company_name || '').toLowerCase().includes(q)
+            );
+        }
+        return list;
+    }, [internships, search, selectedPeriodeId]);
 
     const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paged       = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -103,6 +130,9 @@ export default function PlottingMagang() {
         if (!formData.student_id || !formData.dosen_id || !formData.partner_id) {
             toast.error('Semua pilihan wajib diisi!'); return;
         }
+        if (!editingPlot && !activePeriode) {
+            toast.error('Tidak ada periode aktif! Buka periode akademik terlebih dahulu.'); return;
+        }
         setSaving(true);
         const toastId = toast.loading(editingPlot ? 'Memperbarui plotting...' : 'Menyimpan plotting...');
 
@@ -122,11 +152,11 @@ export default function PlottingMagang() {
                 if (error) throw error;
                 toast.success('Plotting berhasil diperbarui!', { id: toastId });
             } else {
-                // Cek duplikat
-                const existing = internships.find(i => i.student_id === formData.student_id);
-                if (existing) throw new Error('Mahasiswa ini sudah memiliki plot. Gunakan tombol Edit untuk memperbarui.');
+                // Cek duplikat di periode yang sama
+                const existing = internships.find(i => i.student_id === formData.student_id && i.periode_id === activePeriode.id);
+                if (existing) throw new Error('Mahasiswa ini sudah diplot di periode aktif. Gunakan tombol Edit.');
 
-                const { error } = await supabase.from('internships').insert([{ ...payload, status: 'approved' }]);
+                const { error } = await supabase.from('internships').insert([{ ...payload, status: 'approved', periode_id: activePeriode.id }]);
                 if (error) throw error;
                 toast.success('Plotting berhasil disimpan!', { id: toastId });
             }
@@ -157,6 +187,8 @@ export default function PlottingMagang() {
     const activeCount   = internships.filter(i => i.status === 'approved').length;
     const finishedCount = internships.filter(i => i.status === 'finished').length;
 
+    const isViewOnly = selectedPeriodeId !== activePeriode?.id;
+
     return (
         <div>
             {/* Header */}
@@ -165,9 +197,41 @@ export default function PlottingMagang() {
                     <h1 style={{ fontSize: '1.6rem', marginBottom: '4px' }}>Plotting Penempatan Magang</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Atur penempatan Mahasiswa, Dosen Pembimbing, dan Mitra Instansi.</p>
                 </div>
-                <button onClick={handleOpenAdd} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem' }}>
+                <button
+                    onClick={handleOpenAdd}
+                    disabled={!activePeriode || isViewOnly}
+                    className="btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', opacity: (!activePeriode || isViewOnly) ? 0.5 : 1, cursor: (!activePeriode || isViewOnly) ? 'not-allowed' : 'pointer' }}
+                    title={!activePeriode ? 'Buka periode akademik dulu' : isViewOnly ? 'Beralih ke periode aktif untuk menambah' : ''}
+                >
                     <Plus size={16} /> Tambah Penempatan
                 </button>
+            </div>
+
+            {/* Periode Selector */}
+            <div style={{ backgroundColor: 'white', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 16px', marginBottom: '14px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Calendar size={14} color="var(--text-muted)" />
+                <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', marginRight: '4px' }}>Periode:</span>
+                {periodes.map(p => (
+                    <button key={p.id} onClick={() => { setSelectedPeriodeId(p.id); setPage(1); }}
+                        style={{
+                            padding: '4px 12px', borderRadius: '20px', border: '1px solid', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, transition: 'all 0.15s',
+                            borderColor: selectedPeriodeId === p.id ? 'var(--primary)' : 'var(--border)',
+                            backgroundColor: selectedPeriodeId === p.id ? 'var(--primary)' : 'white',
+                            color: selectedPeriodeId === p.id ? 'white' : 'var(--text-muted)',
+                        }}>
+                        {p.status === 'active' && <span style={{ marginRight: '4px' }}>🟢</span>}
+                        {p.nama}
+                    </button>
+                ))}
+                {!activePeriode && (
+                    <span style={{ fontSize: '0.78rem', color: '#D97706', display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px' }}>
+                        <AlertTriangle size={12} /> Tidak ada periode aktif
+                    </span>
+                )}
+                {isViewOnly && (
+                    <span style={{ fontSize: '0.78rem', color: '#4338CA', backgroundColor: '#E0E7FF', padding: '2px 8px', borderRadius: '10px', marginLeft: 'auto' }}>👁 Mode Lihat Saja</span>
+                )}
             </div>
 
             {/* Summary chips */}

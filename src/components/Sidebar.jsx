@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Briefcase, FileText, Calendar,
     Camera, ChevronDown, MapPin, Megaphone, BookOpen,
-    PanelLeftClose, PanelLeft, Award, Star
+    PanelLeftClose, PanelLeft, Award, Star, BookMarked
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -44,6 +44,7 @@ export default function Sidebar({ role, isOpen, setIsOpen, collapsed, setCollaps
                             { name: 'Manajemen User', path: '/admin/users', icon: <Users size={16} /> },
                             { name: 'Manajemen Mitra', path: '/admin/partners', icon: <Briefcase size={16} /> },
                             { name: 'Plotting Magang', path: '/admin/plotting', icon: <Briefcase size={16} /> },
+                            { name: 'Periode Akademik', path: '/admin/periode', icon: <BookMarked size={16} /> },
                         ]
                     },
                     { name: 'Pengumuman', path: '/admin/announcements', icon: <Megaphone size={18} /> },

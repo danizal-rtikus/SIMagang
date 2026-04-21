@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
-import { Users, CheckCircle, Clock, FileText, Briefcase, Activity, Calendar, Search, MapPin, Megaphone } from 'lucide-react';
+import { Users, CheckCircle, Clock, FileText, Briefcase, Activity, Calendar, Search, MapPin, Megaphone, CalendarDays, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const renderTextWithLinks = (text) => {
@@ -27,6 +27,9 @@ export default function Dashboard() {
     const [adminModal, setAdminModal] = useState({ isOpen: false, type: '', data: [] });
     const [adminSearch, setAdminSearch] = useState('');
 
+    // Periode Akademik
+    const [aktivePeriode, setAktivePeriode] = useState(undefined); // undefined = loading, null = tidak ada
+
     // State khusus untuk Dosen
     const [dosenStudents, setDosenStudents] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -34,7 +37,8 @@ export default function Dashboard() {
     useEffect(() => {
         if (userProfile?.role) {
             fetchStats();
-            fetchAnnouncements(); // Ambil pengumuman tiap render dashboard
+            fetchAnnouncements();
+            fetchAktivePeriode();
             if (userProfile.role === 'admin') {
                 fetchAdminData();
             } else if (userProfile.role === 'mahasiswa') {
@@ -44,6 +48,15 @@ export default function Dashboard() {
             }
         }
     }, [userProfile]);
+
+    const fetchAktivePeriode = async () => {
+        const { data } = await supabase
+            .from('periode_akademik')
+            .select('id, nama, semester, tahun_akademik, tanggal_mulai, tanggal_selesai')
+            .eq('status', 'active')
+            .maybeSingle();
+        setAktivePeriode(data || null);
+    };
 
     useEffect(() => {
         if (announcements.length > 1) {
@@ -518,15 +531,54 @@ export default function Dashboard() {
         );
     };
 
+    // Banner periode aktif (untuk semua role)
+    const renderPeriodeBanner = () => {
+        if (aktivePeriode === undefined) return null; // masih loading
+
+        const semLabel = aktivePeriode?.semester === 'genap' ? 'Genap' : 'Ganjil';
+        const bannerBg = aktivePeriode?.semester === 'genap' ? { bg: '#DBEAFE', color: '#1D4ED8', border: '#93C5FD' } : { bg: '#FEF3C7', color: '#92400E', border: '#FCD34D' };
+
+        if (!aktivePeriode) return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', backgroundColor: '#FFF5F5', border: '1px solid #FEE2E2', borderRadius: '8px', marginBottom: '20px', fontSize: '0.84rem' }}>
+                <AlertTriangle size={15} color="#EF4444" />
+                <span style={{ color: '#DC2626', fontWeight: 500 }}>Tidak ada periode akademik aktif.</span>
+                {userProfile?.role === 'admin' && (
+                    <Link to="/admin/periode" style={{ color: '#DC2626', fontWeight: 700, marginLeft: '4px', textDecoration: 'underline' }}>Buka Periode →</Link>
+                )}
+            </div>
+        );
+
+        const mulaiStr = aktivePeriode.tanggal_mulai
+            ? new Date(aktivePeriode.tanggal_mulai + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+            : '—';
+        const selesaiStr = aktivePeriode.tanggal_selesai
+            ? new Date(aktivePeriode.tanggal_selesai + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+            : '—';
+
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', backgroundColor: bannerBg.bg, border: `1px solid ${bannerBg.border}`, borderRadius: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22C55E', boxShadow: '0 0 6px #22C55E', flexShrink: 0 }} />
+                <CalendarDays size={15} color={bannerBg.color} style={{ flexShrink: 0 }} />
+                <span style={{ fontSize: '0.84rem', fontWeight: 700, color: bannerBg.color }}>Periode Aktif:</span>
+                <span style={{ fontSize: '0.84rem', color: bannerBg.color }}>{aktivePeriode.nama}</span>
+                <span style={{ fontSize: '0.78rem', color: bannerBg.color, opacity: 0.8 }}>· {mulaiStr} s.d. {selesaiStr}</span>
+                {userProfile?.role === 'admin' && (
+                    <Link to="/admin/periode" style={{ fontSize: '0.78rem', color: bannerBg.color, fontWeight: 700, marginLeft: 'auto', textDecoration: 'none', opacity: 0.8 }}>Kelola Periode →</Link>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div>
-            <div style={{ marginBottom: '32px' }}>
+            <div style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>Dashboard</h1>
                 <p style={{ color: 'var(--text-muted)' }}>
                     Selamat datang kembali, <strong>{userProfile?.full_name}</strong>.
                 </p>
             </div>
 
+            {renderPeriodeBanner()}
             {renderAnnouncements()}
 
             {userProfile?.role === 'admin' && renderAdminDashboard()}

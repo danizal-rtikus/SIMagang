@@ -32,6 +32,7 @@ import AdminMonthlyReports from './pages/admin/MonthlyReports';
 import AdminFinalReports from './pages/admin/FinalReports';
 import AdminReportTemplates from './pages/admin/ReportTemplates';
 import AdminPenilaianAspek from './pages/admin/PenilaianAspek';
+import AdminPeriodeAkademik from './pages/admin/PeriodeAkademik';
 
 // Import Dosen Components
 import DosenDailyReports from './pages/dosen/DailyReports';
@@ -96,6 +97,7 @@ function App() {
           <Route path="admin/final-reports" element={<AdminFinalReports />} />
           <Route path="admin/report-templates" element={<AdminReportTemplates />} />
           <Route path="admin/penilaian-aspek" element={<AdminPenilaianAspek />} />
+          <Route path="admin/periode" element={<AdminPeriodeAkademik />} />
 
           {/* Menu Dosen */}
           <Route path="dosen/announcements" element={<Pengumuman />} />
