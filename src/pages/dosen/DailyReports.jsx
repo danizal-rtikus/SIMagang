@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { MessageSquare, CheckCircle, Edit3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageSquare, CheckCircle, Edit3, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton, SkeletonTableRow } from '../../components/Skeleton';
 
@@ -182,6 +182,7 @@ export default function DosenDailyReports() {
                                         <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Tanggal</th>
                                         <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Mahasiswa</th>
                                         <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Aktivitas Singkat</th>
+                                        <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Project</th>
                                         <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Status</th>
                                         <th style={{ padding: '16px', fontWeight: 600, color: 'var(--text-muted)' }}>Aksi</th>
                                     </tr>
@@ -201,8 +202,18 @@ export default function DosenDailyReports() {
                                                     {report.users_profile?.identifier || 'N/A'}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '16px', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            <td style={{ padding: '16px', maxWidth: '260px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {report.activity}
+                                            </td>
+                                            <td style={{ padding: '16px' }}>
+                                                {report.project_link ? (
+                                                    <a href={report.project_link} target="_blank" rel="noopener noreferrer"
+                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#1A73E8', fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}
+                                                        title={report.project_link}>
+                                                        <img src="https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png" alt="GDrive" style={{ width: '14px', height: '14px' }} />
+                                                        Lihat Project <ExternalLink size={11} />
+                                                    </a>
+                                                ) : <span style={{ color: '#CBD5E1', fontSize: '0.82rem' }}>—</span>}
                                             </td>
                                             <td style={{ padding: '16px' }}>
                                                 <span style={{
