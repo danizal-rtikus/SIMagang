@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { FileText, CheckCircle, Edit3, Eye, X, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '../../components/Skeleton';
+import TemplateSection from '../../components/TemplateSection';
 
 export default function DosenFinalReports() {
     const [reports, setReports] = useState([]);
@@ -100,6 +101,8 @@ export default function DosenFinalReports() {
                 <h1 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>Pemeriksaan Laporan Akhir</h1>
                 <p style={{ color: 'var(--text-muted)' }}>Mengevaluasi dokumen komprehensif dari kegiatan akhir magang.</p>
             </div>
+
+            <TemplateSection type="final" title="📋 Template Laporan Akhir" />
 
             <div className="glass-panel" style={{ backgroundColor: 'white' }}>
                 {loading ? (

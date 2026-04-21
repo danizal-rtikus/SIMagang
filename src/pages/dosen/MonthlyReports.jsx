@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { FileText, CheckCircle, Edit3, Eye, X, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '../../components/Skeleton';
+import TemplateSection from '../../components/TemplateSection';
 
 export default function DosenMonthlyReports() {
     const [students, setStudents] = useState([]);
@@ -87,6 +88,8 @@ export default function DosenMonthlyReports() {
                 <h1 style={{ fontSize: '1.8rem', marginBottom: '8px' }}>Progress Tracking Laporan Bulanan</h1>
                 <p style={{ color: 'var(--text-muted)' }}>Pantau kelengkapan laporan mahasiswa per bulan (Bulan 1 - 6).</p>
             </div>
+
+            <TemplateSection type="monthly" title="📋 Template Laporan Bulanan" />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
                 {loading ? (

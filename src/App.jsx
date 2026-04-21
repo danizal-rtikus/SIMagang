@@ -29,6 +29,7 @@ import PlottingMagang from './pages/admin/PlottingMagang';
 import AdminDailyReports from './pages/dosen/DailyReports'; // Reuse komponen dosen
 import AdminMonthlyReports from './pages/admin/MonthlyReports';
 import AdminFinalReports from './pages/admin/FinalReports';
+import AdminReportTemplates from './pages/admin/ReportTemplates';
 
 // Import Dosen Components
 import DosenDailyReports from './pages/dosen/DailyReports';
@@ -90,6 +91,7 @@ function App() {
           <Route path="admin/daily-reports" element={<AdminDailyReports />} />
           <Route path="admin/monthly-reports" element={<AdminMonthlyReports />} />
           <Route path="admin/final-reports" element={<AdminFinalReports />} />
+          <Route path="admin/report-templates" element={<AdminReportTemplates />} />
 
           {/* Menu Dosen */}
           <Route path="dosen/announcements" element={<Pengumuman />} />

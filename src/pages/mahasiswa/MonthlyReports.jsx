@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { UploadCloud, CheckCircle, Clock, AlertTriangle, FileText, Trash2, Edit3 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import TemplateSection from '../../components/TemplateSection';
 
 export default function MonthlyReports() {
     const { userProfile } = useOutletContext();
@@ -110,6 +111,8 @@ export default function MonthlyReports() {
                     </button>
                 )}
             </div>
+
+            <TemplateSection type="monthly" title="📋 Template Laporan Bulanan" />
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
                 {[1, 2, 3, 4, 5, 6].map((month) => {

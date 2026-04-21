@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { UploadCloud, CheckCircle, Clock, AlertTriangle, FileText, Trash2, Edit3 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import TemplateSection from '../../components/TemplateSection';
 
 export default function FinalReports() {
     const { userProfile } = useOutletContext();
@@ -105,6 +106,8 @@ export default function FinalReports() {
                     </button>
                 )}
             </div>
+
+            <TemplateSection type="final" title="📋 Template Laporan Akhir" />
 
             <div className="glass-panel" style={{ padding: '32px', backgroundColor: 'white', maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
                 {loading ? (
