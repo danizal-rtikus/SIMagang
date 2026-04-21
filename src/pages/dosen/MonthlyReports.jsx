@@ -201,7 +201,7 @@ export default function DosenMonthlyReports() {
                                                                 
                                                                 <button onClick={() => handleView(report)} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '4px', textDecoration: 'underline', padding: 0 }}>
                                                                     <Eye size={13}/> Lihat PDF
-                                                                </a>
+                                                                </button>
                                                             </div>
                                                         ) : (
                                                             <span style={{ fontSize: '0.8rem', color: 'var(--border)' }}>Menunggu data</span>
