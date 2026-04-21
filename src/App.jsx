@@ -26,6 +26,9 @@ import ManajemenMitra from './pages/admin/ManajemenMitra';
 import ManajemenPengumuman from './pages/admin/ManajemenPengumuman';
 import AdminMap from './pages/admin/MapGlobal';
 import PlottingMagang from './pages/admin/PlottingMagang';
+import AdminDailyReports from './pages/dosen/DailyReports'; // Reuse komponen dosen
+import AdminMonthlyReports from './pages/admin/MonthlyReports';
+import AdminFinalReports from './pages/admin/FinalReports';
 
 // Import Dosen Components
 import DosenDailyReports from './pages/dosen/DailyReports';
@@ -84,6 +87,9 @@ function App() {
           <Route path="admin/announcements" element={<ManajemenPengumuman />} />
           <Route path="admin/map" element={<AdminMap />} />
           <Route path="admin/plotting" element={<PlottingMagang />} />
+          <Route path="admin/daily-reports" element={<AdminDailyReports />} />
+          <Route path="admin/monthly-reports" element={<AdminMonthlyReports />} />
+          <Route path="admin/final-reports" element={<AdminFinalReports />} />
 
           {/* Menu Dosen */}
           <Route path="dosen/announcements" element={<Pengumuman />} />

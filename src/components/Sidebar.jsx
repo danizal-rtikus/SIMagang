@@ -52,6 +52,15 @@ export default function Sidebar({ role, isOpen, setIsOpen }) {
                         ]
                     },
                     { name: 'Kelola Pengumuman', path: '/admin/announcements', icon: <Megaphone size={20} /> },
+                    {
+                        name: 'Laporan',
+                        icon: <FileText size={20} />,
+                        subItems: [
+                            { name: 'Laporan Harian', path: '/admin/daily-reports', icon: <FileText size={18} /> },
+                            { name: 'Laporan Bulanan', path: '/admin/monthly-reports', icon: <Calendar size={18} /> },
+                            { name: 'Laporan Akhir', path: '/admin/final-reports', icon: <Briefcase size={18} /> }
+                        ]
+                    },
                     { 
                         name: 'Lokasi', 
                         icon: <Map size={20} />,
