@@ -273,8 +273,8 @@ export default function MonthlyReports() {
                                                 </button>
                                             )}
 
-                                            {/* Hapus — hanya jika belum disetujui dan belum ada revisi aktif */}
-                                            {report.status !== 'approved' && report.status !== 'revision' && (
+                                            {/* Hapus — hanya jika belum disetujui DAN BUKAN sedang menunggu review / revision */}
+                                            {report.status !== 'approved' && report.status !== 'submitted' && report.status !== 'revision' && (
                                                 <button onClick={() => setDeleteConfirm({ id: report.id, month: report.month_number })}
                                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 12px', borderRadius: '16px', border: '1px solid #FECACA', backgroundColor: '#FEF2F2', color: '#EF4444', cursor: 'pointer', fontSize: '0.82rem' }}>
                                                     <Trash2 size={12} /> Hapus
