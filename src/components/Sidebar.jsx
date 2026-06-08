@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Map, Briefcase, FileText, Calendar,
     Camera, ChevronDown, MapPin, Megaphone, BookOpen,
-    PanelLeftClose, PanelLeft, Award, Star, BookMarked
+    PanelLeftClose, PanelLeft, Award, Star, BookMarked, Lock
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -63,6 +63,7 @@ export default function Sidebar({ role, isOpen, setIsOpen, collapsed, setCollaps
                         icon: <Award size={18} />,
                         subItems: [
                             { name: 'Aspek & Butir', path: '/admin/penilaian-aspek', icon: <Star size={16} /> },
+                            { name: 'Sesi Penilaian', path: '/admin/sesi-penilaian', icon: <Lock size={16} /> },
                         ]
                     },
                     {

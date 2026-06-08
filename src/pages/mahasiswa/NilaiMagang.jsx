@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Award, TrendingUp, ClipboardList, AlertCircle } from 'lucide-react';
+import { AlertCircle, Clock } from 'lucide-react';
 
 const SKALA = [
     { value: 1, label: 'SK', title: 'Sangat Kurang',  color: '#DC2626', bg: '#FEE2E2' },
@@ -32,17 +32,22 @@ export default function MhsNilaiMagang() {
     const [nilaiMap, setNilaiMap] = useState({}); // { butir_id: nilai }
     const [loading, setLoading]   = useState(true);
     const [hasInternship, setHasInternship] = useState(true);
+    const [penilaianStatus, setPenilaianStatus] = useState('open');
 
-    useEffect(() => { fetchData(); }, [userProfile]);
+    useEffect(() => {
+        fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userProfile]);
 
     const fetchData = async () => {
         setLoading(true);
 
         // 1. Cek internship aktif
         const { data: intData } = await supabase.from('internships')
-            .select('id').eq('student_id', userProfile.id).eq('status', 'approved').maybeSingle();
+            .select('id, penilaian_status').eq('student_id', userProfile.id).eq('status', 'approved').maybeSingle();
 
         if (!intData) { setHasInternship(false); setLoading(false); return; }
+        setPenilaianStatus(intData.penilaian_status || 'open');
 
         // 2. Load aspek + butir
         const { data: aspekData } = await supabase.from('aspek_penilaian')
@@ -84,6 +89,23 @@ export default function MhsNilaiMagang() {
                 <AlertCircle size={40} strokeWidth={1.2} style={{ margin: '0 auto 12px', color: '#D97706' }} />
                 <p style={{ fontWeight: 600 }}>Belum ada penempatan magang aktif.</p>
                 <p style={{ fontSize: '0.85rem', marginTop: '6px' }}>Hubungi Admin untuk mendapatkan plotting magang terlebih dahulu.</p>
+            </div>
+        </div>
+    );
+
+    if (penilaianStatus !== 'closed') return (
+        <div>
+            <div style={{ marginBottom: '20px' }}>
+                <h1 style={{ fontSize: '1.6rem', marginBottom: '4px' }}>Nilai Magang</h1>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Rekap penilaian dari Dosen Pembimbing Anda.</p>
+            </div>
+            <div className="glass-panel" style={{ backgroundColor: 'white', padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Clock size={40} strokeWidth={1.2} style={{ margin: '0 auto 12px', color: '#7C3AED' }} />
+                <p style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '1.05rem' }}>Sesi Penilaian Belum Selesai</p>
+                <p style={{ fontSize: '0.85rem', marginTop: '6px', maxWidth: '480px', margin: '6px auto 0', lineHeight: 1.5 }}>
+                    Sesi penilaian Anda masih berlangsung atau belum ditutup oleh Dosen Pembimbing.<br />
+                    Nilai akhir dan detail aspek penilaian akan tampil di sini setelah Dosen Pembimbing memfinalisasi penilaian Anda.
+                </p>
             </div>
         </div>
     );

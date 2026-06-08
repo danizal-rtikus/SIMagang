@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Save, ChevronDown, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, User, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const SKALA = [
@@ -37,6 +37,8 @@ export default function DosenInputNilai() {
     const [existingNilai, setExistingNilai]     = useState({});  // { butir_id: nilai }
     const [scores, setScores]                   = useState({});  // { butir_id: nilai }
     const [saving, setSaving]                   = useState(false);
+    const [closingSession, setClosingSession]   = useState(false);
+    const [showConfirmClose, setShowConfirmClose] = useState(false);
 
     useEffect(() => { fetchData(); }, []);
 
@@ -46,7 +48,7 @@ export default function DosenInputNilai() {
 
         const [{ data: intData }, { data: aspekData }] = await Promise.all([
             supabase.from('internships').select(`
-                id, student_id,
+                id, student_id, penilaian_status,
                 student:users_profile!internships_student_id_fkey(full_name, identifier)
             `).eq('dosen_id', user.id).eq('status', 'approved'),
             supabase.from('aspek_penilaian')
@@ -120,7 +122,50 @@ export default function DosenInputNilai() {
         }
     };
 
+    const handleCloseSession = () => {
+        setShowConfirmClose(true);
+    };
+
+    const executeCloseSession = async () => {
+        setClosingSession(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const studentInternship = students.find(s => s.id === internshipId);
+
+            // 1. Simpan nilai terlebih dahulu agar up-to-date
+            const upsertData = Object.entries(scores).map(([butir_id, nilai]) => ({
+                internship_id: internshipId,
+                student_id:    studentInternship.student_id,
+                dosen_id:      user.id,
+                butir_id,
+                nilai,
+                updated_at:    new Date().toISOString(),
+            }));
+
+            const { error: upsertError } = await supabase.from('penilaian_magang').upsert(upsertData, { onConflict: 'internship_id,butir_id' });
+            if (upsertError) throw upsertError;
+
+            // 2. Update status penilaian di tabel internships
+            const { error: updateError } = await supabase.from('internships')
+                .update({ penilaian_status: 'closed' })
+                .eq('id', internshipId);
+            
+            if (updateError) throw updateError;
+
+            // 3. Update local state
+            setStudents(prev => prev.map(s => s.id === internshipId ? { ...s, penilaian_status: 'closed' } : s));
+            setExistingNilai({ ...scores });
+            setShowConfirmClose(false);
+            toast.success(`Sesi penilaian berhasil ditutup dan nilai dipublikasikan!`);
+        } catch (err) {
+            toast.error('Gagal menutup sesi: ' + err.message);
+        } finally {
+            setClosingSession(false);
+        }
+    };
+
     const selectedStudentData = students.find(s => s.id === selectedStudent);
+    const isClosed = selectedStudentData?.penilaian_status === 'closed';
 
     return (
         <div>
@@ -150,7 +195,6 @@ export default function DosenInputNilai() {
                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     {students.map(st => {
                                         const isSelected = selectedStudent === st.id;
-                                        const hasNilai   = Object.keys(existingNilai).length > 0 && isSelected;
                                         return (
                                             <button key={st.id} onClick={() => handleSelectStudent(st)}
                                                 style={{
@@ -173,9 +217,11 @@ export default function DosenInputNilai() {
                                                         </p>
                                                         <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)' }}>{st.identifier || 'N/A'}</p>
                                                     </div>
-                                                    {isSelected && Object.keys(existingNilai).length > 0 && (
-                                                        <CheckCircle2 size={14} color="#059669" style={{ flexShrink: 0, marginLeft: 'auto' }} />
-                                                    )}
+                                                     {st.penilaian_status === 'closed' ? (
+                                                         <Lock size={13} color="#7C3AED" style={{ flexShrink: 0, marginLeft: 'auto' }} title="Sesi Penilaian Ditutup" />
+                                                     ) : isSelected && Object.keys(existingNilai).length > 0 ? (
+                                                         <CheckCircle2 size={14} color="#059669" style={{ flexShrink: 0, marginLeft: 'auto' }} />
+                                                     ) : null}
                                                 </div>
                                             </button>
                                         );
@@ -224,7 +270,7 @@ export default function DosenInputNilai() {
                                 </div>
 
                                 {/* Aspek + Butir table */}
-                                {aspeks.map((aspek, ai) => {
+                                {aspeks.map((aspek) => {
                                     const aspekRaw  = (aspek.butir_penilaian || []).reduce((s, b) => s + (scores[b.id] || 0), 0);
                                     const aspekFilled = (aspek.butir_penilaian || []).filter(b => scores[b.id]).length;
                                     return (
@@ -263,27 +309,29 @@ export default function DosenInputNilai() {
                                                                 <td style={{ padding: '12px 16px', fontSize: '0.83rem', color: 'var(--text-muted)', fontWeight: 600 }}>{bi + 1}</td>
                                                                 <td style={{ padding: '12px 16px', fontSize: '0.87rem', color: 'var(--text-main)' }}>{butir.deskripsi}</td>
                                                                 {SKALA.map(s => {
-                                                                    const isSelected = val === s.value;
-                                                                    return (
-                                                                        <td key={s.value} style={{ padding: '10px 6px', textAlign: 'center' }}>
-                                                                            <button
-                                                                                onClick={() => setScore(butir.id, s.value)}
-                                                                                title={`${s.value} – ${s.title}`}
-                                                                                style={{
-                                                                                    width: '36px', height: '36px', borderRadius: '8px', border: '2px solid',
-                                                                                    cursor: 'pointer', fontWeight: 700, fontSize: '0.75rem', transition: 'all 0.1s',
-                                                                                    borderColor: isSelected ? s.color : 'var(--border)',
-                                                                                    backgroundColor: isSelected ? s.bg : 'white',
-                                                                                    color: isSelected ? s.color : 'var(--text-muted)',
-                                                                                    transform: isSelected ? 'scale(1.12)' : 'scale(1)',
-                                                                                    boxShadow: isSelected ? `0 2px 8px ${s.color}40` : 'none'
-                                                                                }}
-                                                                            >
-                                                                                {s.label}
-                                                                            </button>
-                                                                        </td>
-                                                                    );
-                                                                })}
+                                                                     const isSelected = val === s.value;
+                                                                     return (
+                                                                         <td key={s.value} style={{ padding: '10px 6px', textAlign: 'center' }}>
+                                                                             <button
+                                                                                 onClick={() => !isClosed && setScore(butir.id, s.value)}
+                                                                                 disabled={isClosed}
+                                                                                 title={isClosed ? `${s.value} – ${s.title} (Sesi Ditutup)` : `${s.value} – ${s.title}`}
+                                                                                 style={{
+                                                                                     width: '36px', height: '36px', borderRadius: '8px', border: '2px solid',
+                                                                                     cursor: isClosed ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '0.75rem', transition: 'all 0.1s',
+                                                                                     borderColor: isSelected ? s.color : 'var(--border)',
+                                                                                     backgroundColor: isSelected ? s.bg : 'white',
+                                                                                     color: isSelected ? s.color : 'var(--text-muted)',
+                                                                                     transform: isSelected && !isClosed ? 'scale(1.12)' : 'scale(1)',
+                                                                                     boxShadow: isSelected && !isClosed ? `0 2px 8px ${s.color}40` : 'none',
+                                                                                     opacity: isClosed && !isSelected ? 0.45 : 1
+                                                                                 }}
+                                                                             >
+                                                                                 {s.label}
+                                                                             </button>
+                                                                         </td>
+                                                                     );
+                                                                 })}
                                                             </tr>
                                                         );
                                                     })}
@@ -293,18 +341,56 @@ export default function DosenInputNilai() {
                                     );
                                 })}
 
-                                {/* Save button */}
-                                <div style={{ position: 'sticky', bottom: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                                    {answeredCount < totalButir && (
-                                        <div style={{ padding: '10px 16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', fontSize: '0.83rem', color: '#D97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <AlertCircle size={14} /> {totalButir - answeredCount} butir belum dinilai
-                                        </div>
-                                    )}
-                                    <button onClick={handleSave} disabled={saving} className="btn-primary"
-                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '0.88rem', boxShadow: '0 4px 12px rgba(246,130,31,0.35)' }}>
-                                        <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan Nilai'}
-                                    </button>
-                                </div>
+                                 {/* Save / Close Session button */}
+                                 <div style={{ position: 'sticky', bottom: '16px', display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px', backgroundColor: 'rgba(255,255,255,0.95)', padding: '12px 20px', borderRadius: '8px', border: '1px solid var(--border)', backdropFilter: 'blur(4px)', zIndex: 10 }}>
+                                     {isClosed ? (
+                                         <div style={{ padding: '8px 16px', backgroundColor: '#EDE9FE', border: '1px solid #C084FC', borderRadius: '8px', fontSize: '0.88rem', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, width: '100%', justifyContent: 'center' }}>
+                                             <Lock size={16} /> Sesi Penilaian Ditutup. Nilai telah dipublikasikan ke Mahasiswa.
+                                         </div>
+                                     ) : (
+                                         <>
+                                             {answeredCount < totalButir && (
+                                                 <div style={{ padding: '10px 16px', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: '8px', fontSize: '0.83rem', color: '#D97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                     <AlertCircle size={14} /> {totalButir - answeredCount} butir belum dinilai
+                                                 </div>
+                                             )}
+                                             <button onClick={handleSave} disabled={saving} className="btn-secondary"
+                                                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '0.88rem', border: '1px solid var(--border)', background: 'white', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>
+                                                 <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan Sementara'}
+                                             </button>
+                                             {answeredCount === totalButir && (
+                                                 <button onClick={handleCloseSession} disabled={saving || closingSession}
+                                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '0.88rem', background: '#7C3AED', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 12px rgba(124,58,237,0.35)' }}>
+                                                     <CheckCircle2 size={16} /> {closingSession ? 'Menutup Sesi...' : 'Tutup Sesi & Publish'}
+                                                 </button>
+                                             )}
+                                         </>
+                                     )}
+                                 </div>
+
+                                 {/* Confirm Close Session Modal */}
+                                 {showConfirmClose && (
+                                     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                                         <div style={{ backgroundColor: 'white', padding: '28px', borderRadius: '10px', maxWidth: '450px', width: '100%', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
+                                             <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#F3E8FF', color: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                                 <Lock size={28} />
+                                             </div>
+                                             <p style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '8px' }}>Tutup Sesi Penilaian?</p>
+                                             <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '24px', lineHeight: 1.5 }}>
+                                                 Anda akan menutup sesi penilaian untuk <strong>{selectedStudentData?.full_name}</strong>.<br />
+                                                 <span style={{ color: '#EF4444', fontWeight: 600 }}>Setelah ditutup:</span><br />
+                                                 1. Nilai akan langsung dipublikasikan ke mahasiswa.<br />
+                                                 2. Anda tidak dapat mengubah penilaian ini lagi (terkunci).
+                                             </p>
+                                             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                                 <button onClick={() => setShowConfirmClose(false)} disabled={closingSession} style={{ padding: '10px 22px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '0.85rem' }}>Batal</button>
+                                                 <button onClick={executeCloseSession} disabled={closingSession} style={{ padding: '10px 22px', border: 'none', borderRadius: '6px', background: '#7C3AED', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+                                                     {closingSession ? 'Memproses...' : 'Ya, Tutup Sesi'}
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 )}
                             </>
                         )}
                     </div>
