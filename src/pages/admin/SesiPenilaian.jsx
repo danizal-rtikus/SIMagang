@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Search, Lock, Unlock, Users, RefreshCw } from 'lucide-react';
+import { Search, Lock, Unlock, Users, RefreshCw, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminSesiPenilaian() {
@@ -13,6 +13,8 @@ export default function AdminSesiPenilaian() {
     const [showConfirmReopen, setShowConfirmReopen] = useState(false);
     const [selectedInternship, setSelectedInternship] = useState(null);
     const [reopening, setReopening] = useState(false);
+    const [showPrintModal, setShowPrintModal] = useState(false);
+    const [selectedDosenId, setSelectedDosenId] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -75,6 +77,17 @@ export default function AdminSesiPenilaian() {
     };
 
     // Calculate stats
+    // Extract unique lecturers who have active bimbingan
+    const uniqueDosenList = [];
+    const dosenMap = new Map();
+    internships.forEach(item => {
+        if (item.dosen && !dosenMap.has(item.dosen.id)) {
+            dosenMap.set(item.dosen.id, true);
+            uniqueDosenList.push(item.dosen);
+        }
+    });
+    uniqueDosenList.sort((a, b) => a.full_name.localeCompare(b.full_name));
+
     const totalCount = internships.length;
     const openCount  = internships.filter(i => i.penilaian_status !== 'closed').length;
     const closedCount = internships.filter(i => i.penilaian_status === 'closed').length;
@@ -104,9 +117,15 @@ export default function AdminSesiPenilaian() {
                     <h1 style={{ fontSize: '1.6rem', marginBottom: '4px' }}>Sesi Penilaian Magang</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Pantau dan kelola sesi penilaian mahasiswa oleh dosen pembimbing.</p>
                 </div>
-                <button onClick={fetchData} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', cursor: 'pointer', padding: '8px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: '6px' }}>
-                    <RefreshCw size={14} className={loading ? 'spin-anim' : ''} /> Segarkan
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => { setShowPrintModal(true); setSelectedDosenId(''); }} className="btn-primary" 
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', cursor: 'pointer', padding: '8px 16px', background: 'var(--primary, #F6821F)', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 600 }}>
+                        <Printer size={15} /> Cetak Laporan per Dosen
+                    </button>
+                    <button onClick={fetchData} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', cursor: 'pointer', padding: '8px 16px', background: 'white', border: '1px solid var(--border)', borderRadius: '6px' }}>
+                        <RefreshCw size={14} className={loading ? 'spin-anim' : ''} /> Segarkan
+                    </button>
+                </div>
             </div>
 
             {/* Stats Overview */}
@@ -290,6 +309,49 @@ export default function AdminSesiPenilaian() {
                             <button onClick={() => setShowConfirmReopen(false)} disabled={reopening} style={{ padding: '10px 22px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '0.85rem' }}>Batal</button>
                             <button onClick={executeReopen} disabled={reopening} style={{ padding: '10px 22px', border: 'none', borderRadius: '6px', background: '#D97706', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
                                 {reopening ? 'Memproses...' : 'Ya, Buka Sesi'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Print Selection Modal */}
+            {showPrintModal && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ backgroundColor: 'white', padding: '28px', borderRadius: '10px', maxWidth: '450px', width: '100%', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
+                        <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#EFF6FF', color: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                            <Printer size={28} />
+                        </div>
+                        <h3 style={{ textAlign: 'center', margin: '0 0 8px 0', fontSize: '1.2rem', fontWeight: 700 }}>Cetak Rekap Nilai Dosen</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', marginBottom: '20px', lineHeight: 1.4 }}>
+                            Pilih Dosen Pendamping untuk mencetak rekapitulasi nilai mahasiswa bimbingannya.
+                        </p>
+                        
+                        <div style={{ marginBottom: '24px' }}>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>Dosen Pendamping</label>
+                            <select 
+                                value={selectedDosenId}
+                                onChange={e => setSelectedDosenId(e.target.value)}
+                                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '0.88rem', outline: 'none' }}
+                            >
+                                <option value="">-- Pilih Dosen Pendamping --</option>
+                                {uniqueDosenList.map(d => (
+                                    <option key={d.id} value={d.id}>{d.full_name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowPrintModal(false)} style={{ padding: '9px 18px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '0.85rem' }}>Batal</button>
+                            <button 
+                                onClick={() => {
+                                    if (!selectedDosenId) { toast.error('Pilih Dosen Pendamping terlebih dahulu!'); return; }
+                                    window.open(`/admin/print-nilai-dosen/${selectedDosenId}`, '_blank');
+                                    setShowPrintModal(false);
+                                }}
+                                style={{ padding: '9px 22px', border: 'none', borderRadius: '6px', background: 'var(--primary, #F6821F)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                            >
+                                Cetak
                             </button>
                         </div>
                     </div>

@@ -34,6 +34,7 @@ import AdminReportTemplates from './pages/admin/ReportTemplates';
 import AdminPenilaianAspek from './pages/admin/PenilaianAspek';
 import AdminPeriodeAkademik from './pages/admin/PeriodeAkademik';
 import AdminSesiPenilaian from './pages/admin/SesiPenilaian';
+import AdminPrintNilaiDosen from './pages/admin/PrintNilaiDosen';
 
 // Import Dosen Components
 import DosenDailyReports from './pages/dosen/DailyReports';
@@ -100,6 +101,7 @@ function App() {
           <Route path="admin/penilaian-aspek" element={<AdminPenilaianAspek />} />
           <Route path="admin/periode" element={<AdminPeriodeAkademik />} />
           <Route path="admin/sesi-penilaian" element={<AdminSesiPenilaian />} />
+          <Route path="admin/print-nilai-dosen/:dosenId" element={<AdminPrintNilaiDosen />} />
 
           {/* Menu Dosen */}
           <Route path="dosen/announcements" element={<Pengumuman />} />
