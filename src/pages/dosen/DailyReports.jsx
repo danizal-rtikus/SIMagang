@@ -286,7 +286,7 @@ export default function DosenDailyReports() {
                     )}
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', paddingRight: '4px' }}>
+                <div style={{ maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', paddingRight: '4px' }}>
                     {filtered.map(student => {
                         const isOpen = !!expandedStudents[student.id];
                         const pending  = student.reports.filter(r => r.status === 'submitted').length;
@@ -297,7 +297,7 @@ export default function DosenDailyReports() {
                         return (
                             <div key={student.id}
                                 className="glass-panel"
-                                style={{ backgroundColor: 'white', overflow: 'hidden', transition: 'box-shadow 0.15s', flexShrink: 0 }}>
+                                style={{ backgroundColor: 'white', overflow: 'hidden', transition: 'box-shadow 0.15s', marginBottom: '10px' }}>
 
                                 {/* Student header row (always visible) */}
                                 <button

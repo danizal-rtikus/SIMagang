@@ -183,11 +183,11 @@ export default function PenilaianAspek() {
             )}
 
             {/* Aspek list accordion */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: 'calc(100vh - 310px)', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ maxHeight: 'calc(100vh - 310px)', overflowY: 'auto', paddingRight: '4px' }}>
                 {aspeks.map((aspek, ai) => {
                     const isOpen = !!openAspek[aspek.id];
                     return (
-                        <div key={aspek.id} className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden', flexShrink: 0 }}>
+                        <div key={aspek.id} className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden', marginBottom: '10px' }}>
                             {/* Aspek row */}
                             {editingAspek?.id === aspek.id ? (
                                 <div style={{ padding: '14px 18px', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap', backgroundColor: '#FFFBEB', borderBottom: '1px solid #FCD34D' }}>
