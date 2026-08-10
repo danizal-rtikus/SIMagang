@@ -81,7 +81,7 @@ export default function DosenInputNilai() {
     const rawSum     = Object.values(scores).reduce((s, v) => s + v, 0);
     const answeredCount = Object.keys(scores).length;
     const finalScore  = answeredCount === totalButir ? convertToFinalScore(rawSum, totalButir) : null;
-    const gradeObj    = finalScore !== null ? getGrade(finalScore, scaleType) : null;
+    const gradeLabel  = finalScore !== null ? getGrade(finalScore, scaleType) : null;
 
     const handleSave = async () => {
         if (!internshipId) { toast.error('Pilih mahasiswa terlebih dahulu!'); return; }
@@ -247,28 +247,33 @@ export default function DosenInputNilai() {
                                         <p style={{ margin: 0, fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>{selectedStudentData?.full_name}</p>
                                         <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)' }}>NIM: {selectedStudentData?.identifier}</p>
                                     </div>
-                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Diisi</p>
-                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: answeredCount === totalButir ? '#059669' : 'var(--primary)' }}>{answeredCount}/{totalButir}</p>
-                                        </div>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Skor Mentah</p>
-                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>{rawSum}</p>
-                                        </div>
-                                        <div style={{ textAlign: 'center' }}>
-                                            <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Nilai Akhir</p>
-                                            <p style={{ margin: 0, fontWeight: 700, fontSize: '1.3rem', color: gradeLabel?.color || 'var(--text-muted)' }}>
-                                                {finalScore ?? '—'}
-                                            </p>
-                                        </div>
-                                        {gradeLabel && (
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem', backgroundColor: gradeLabel.color + '20', color: gradeLabel.color }}>
-                                                {gradeLabel.label}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
+                                     <div style={{ marginLeft: 'auto', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', padding: '3px 6px', borderRadius: '6px' }}>
+                                             <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)' }}>Skala:</span>
+                                             <button type="button" onClick={() => setScaleType('5')} style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, border: 'none', cursor: 'pointer', backgroundColor: scaleType === '5' ? 'var(--primary)' : 'transparent', color: scaleType === '5' ? 'white' : 'var(--text-muted)' }}>5 S</button>
+                                             <button type="button" onClick={() => setScaleType('8')} style={{ padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700, border: 'none', cursor: 'pointer', backgroundColor: scaleType === '8' ? 'var(--primary)' : 'transparent', color: scaleType === '8' ? 'white' : 'var(--text-muted)' }}>8 S</button>
+                                         </div>
+                                         <div style={{ textAlign: 'center' }}>
+                                             <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Diisi</p>
+                                             <p style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: answeredCount === totalButir ? '#059669' : 'var(--primary)' }}>{answeredCount}/{totalButir}</p>
+                                         </div>
+                                         <div style={{ textAlign: 'center' }}>
+                                             <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Skor Mentah</p>
+                                             <p style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem', color: 'var(--text-main)' }}>{rawSum}</p>
+                                         </div>
+                                         <div style={{ textAlign: 'center' }}>
+                                             <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>Nilai Akhir</p>
+                                             <p style={{ margin: 0, fontWeight: 700, fontSize: '1.3rem', color: gradeLabel?.color || 'var(--text-muted)' }}>
+                                                 {finalScore ?? '—'}
+                                             </p>
+                                         </div>
+                                         {gradeLabel && (
+                                             <div style={{ width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.1rem', backgroundColor: gradeLabel.color + '20', color: gradeLabel.color }} title={gradeLabel.desc}>
+                                                 {gradeLabel.label}
+                                             </div>
+                                         )}
+                                     </div>
+                                 </div>
 
                                 {/* Aspek + Butir table */}
                                 {aspeks.map((aspek) => {
