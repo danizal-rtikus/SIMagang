@@ -102,6 +102,18 @@ export default function Sidebar({ role, isOpen, setIsOpen, collapsed, setCollaps
                         ]
                     },
                 ];
+            case 'mitra':
+                return [
+                    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={18} /> },
+                    { name: 'Pengumuman', path: '/mitra/announcements', icon: <Megaphone size={18} /> },
+                    {
+                        name: 'Penilaian',
+                        icon: <Award size={18} />,
+                        subItems: [
+                            { name: 'Input Nilai', path: '/mitra/input-nilai', icon: <Star size={16} /> },
+                        ]
+                    },
+                ];
             case 'mahasiswa':
                 return [
                     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={18} /> },

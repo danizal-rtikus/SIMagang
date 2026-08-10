@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Save, User, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { convertToFinalScore, getGrade } from '../../lib/grading';
 
 const SKALA = [
     { value: 1, label: 'SK', title: 'Sangat Kurang',  color: '#DC2626', bg: '#FEE2E2' },
@@ -11,26 +13,13 @@ const SKALA = [
     { value: 5, label: 'BS', title: 'Baik Sekali',    color: '#7C3AED', bg: '#EDE9FE' },
 ];
 
-// Convert raw sum → skala 45-100
-function convertToFinalScore(rawSum, totalButir) {
-    if (!totalButir) return 0;
-    const minRaw = totalButir;      // all SK=1
-    const maxRaw = totalButir * 5;  // all BS=5
-    return Math.round(((rawSum - minRaw) / (maxRaw - minRaw)) * (100 - 45) + 45);
-}
-
-function getGradeLabel(score) {
-    if (score >= 85) return { label: 'A',  color: '#059669' };
-    if (score >= 75) return { label: 'B',  color: '#2563EB' };
-    if (score >= 65) return { label: 'C',  color: '#D97706' };
-    if (score >= 55) return { label: 'D',  color: '#EF4444' };
-    return                        { label: 'E',  color: '#DC2626' };
-}
-
 export default function DosenInputNilai() {
-    const [students, setStudents]   = useState([]); // mahasiswa bimbingan
+    const context = useOutletContext();
+    const userProfile = context?.userProfile || null;
+    const [students, setStudents]   = useState([]);
     const [aspeks, setAspeks]       = useState([]);
     const [loading, setLoading]     = useState(true);
+    const [scaleType, setScaleType] = useState('5'); // '5' or '8'
 
     const [selectedStudent, setSelectedStudent] = useState('');
     const [internshipId, setInternshipId]       = useState('');
@@ -45,12 +34,14 @@ export default function DosenInputNilai() {
     const fetchData = async () => {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
+        const role = userProfile?.role || 'dosen';
+        const filterCol = role === 'mitra' ? 'mitra_id' : 'dosen_id';
 
         const [{ data: intData }, { data: aspekData }] = await Promise.all([
             supabase.from('internships').select(`
                 id, student_id, penilaian_status,
                 student:users_profile!internships_student_id_fkey(full_name, identifier)
-            `).eq('dosen_id', user.id).eq('status', 'approved'),
+            `).eq(filterCol, user.id).eq('status', 'approved'),
             supabase.from('aspek_penilaian')
                 .select('*, butir_penilaian(id, nomor, deskripsi, urutan)')
                 .order('urutan'),
@@ -69,11 +60,14 @@ export default function DosenInputNilai() {
     const handleSelectStudent = async (internship) => {
         setSelectedStudent(internship.id);
         setInternshipId(internship.id);
+        const role = userProfile?.role || 'dosen';
+        const evaluatorRole = role === 'mitra' ? 'mitra' : 'dosen';
 
-        // Load existing nilai
+        // Load existing nilai untuk evaluator ini
         const { data } = await supabase.from('penilaian_magang')
             .select('butir_id, nilai')
-            .eq('internship_id', internship.id);
+            .eq('internship_id', internship.id)
+            .eq('evaluator_role', evaluatorRole);
 
         const map = {};
         if (data) data.forEach(n => { map[n.butir_id] = n.nilai; });
@@ -87,7 +81,7 @@ export default function DosenInputNilai() {
     const rawSum     = Object.values(scores).reduce((s, v) => s + v, 0);
     const answeredCount = Object.keys(scores).length;
     const finalScore  = answeredCount === totalButir ? convertToFinalScore(rawSum, totalButir) : null;
-    const gradeLabel  = finalScore ? getGradeLabel(finalScore) : null;
+    const gradeObj    = finalScore !== null ? getGrade(finalScore, scaleType) : null;
 
     const handleSave = async () => {
         if (!internshipId) { toast.error('Pilih mahasiswa terlebih dahulu!'); return; }
@@ -98,19 +92,22 @@ export default function DosenInputNilai() {
         setSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
         const studentInternship = students.find(s => s.id === internshipId);
+        const role = userProfile?.role || 'dosen';
+        const evaluatorRole = role === 'mitra' ? 'mitra' : 'dosen';
 
         try {
             // Upsert semua nilai
             const upsertData = Object.entries(scores).map(([butir_id, nilai]) => ({
-                internship_id: internshipId,
-                student_id:    studentInternship.student_id,
-                dosen_id:      user.id,
+                internship_id:  internshipId,
+                student_id:     studentInternship.student_id,
+                dosen_id:       user.id,
+                evaluator_role: evaluatorRole,
                 butir_id,
                 nilai,
-                updated_at:    new Date().toISOString(),
+                updated_at:     new Date().toISOString(),
             }));
 
-            const { error } = await supabase.from('penilaian_magang').upsert(upsertData, { onConflict: 'internship_id,butir_id' });
+            const { error } = await supabase.from('penilaian_magang').upsert(upsertData, { onConflict: 'internship_id,butir_id,evaluator_role' });
             if (error) throw error;
 
             setExistingNilai({ ...scores });
@@ -132,17 +129,21 @@ export default function DosenInputNilai() {
             const { data: { user } } = await supabase.auth.getUser();
             const studentInternship = students.find(s => s.id === internshipId);
 
+            const role = userProfile?.role || 'dosen';
+            const evaluatorRole = role === 'mitra' ? 'mitra' : 'dosen';
+
             // 1. Simpan nilai terlebih dahulu agar up-to-date
             const upsertData = Object.entries(scores).map(([butir_id, nilai]) => ({
-                internship_id: internshipId,
-                student_id:    studentInternship.student_id,
-                dosen_id:      user.id,
+                internship_id:  internshipId,
+                student_id:     studentInternship.student_id,
+                dosen_id:       user.id,
+                evaluator_role: evaluatorRole,
                 butir_id,
                 nilai,
-                updated_at:    new Date().toISOString(),
+                updated_at:     new Date().toISOString(),
             }));
 
-            const { error: upsertError } = await supabase.from('penilaian_magang').upsert(upsertData, { onConflict: 'internship_id,butir_id' });
+            const { error: upsertError } = await supabase.from('penilaian_magang').upsert(upsertData, { onConflict: 'internship_id,butir_id,evaluator_role' });
             if (upsertError) throw upsertError;
 
             // 2. Update status penilaian di tabel internships

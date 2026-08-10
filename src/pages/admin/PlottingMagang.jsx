@@ -30,6 +30,7 @@ export default function PlottingMagang() {
     const [internships, setInternships] = useState([]);
     const [students, setStudents]       = useState([]);
     const [dosens, setDosens]           = useState([]);
+    const [mitras, setMitras]           = useState([]);
     const [partners, setPartners]       = useState([]);
     const [periodes, setPeriodes]        = useState([]);
     const [activePeriode, setActivePeriode] = useState(null);
@@ -42,7 +43,7 @@ export default function PlottingMagang() {
     const [showModal, setShowModal]       = useState(false);
     const [editingPlot, setEditingPlot]   = useState(null); // null = add, object = edit
     const [deleteConfirm, setDeleteConfirm] = useState(null);
-    const [formData, setFormData]         = useState({ student_id: '', dosen_id: '', partner_id: '', start_date: '', end_date: '' });
+    const [formData, setFormData]         = useState({ student_id: '', dosen_id: '', mitra_id: '', partner_id: '', start_date: '', end_date: '' });
     const [saving, setSaving]             = useState(false);
 
     useEffect(() => { fetchData(); }, []);
@@ -53,17 +54,20 @@ export default function PlottingMagang() {
         const [
             { data: mhsData },
             { data: dsnData },
+            { data: mtrData },
             { data: ptnData },
             { data: intData },
             { data: periodeData }
         ] = await Promise.all([
             supabase.from('users_profile').select('*').eq('role', 'mahasiswa').order('full_name'),
             supabase.from('users_profile').select('*').eq('role', 'dosen').order('full_name'),
+            supabase.from('users_profile').select('*').eq('role', 'mitra').order('full_name'),
             supabase.from('partners').select('*').order('name'),
             supabase.from('internships').select(`
-                id, start_date, end_date, student_id, dosen_id, partner_id, company_name, status, periode_id,
+                id, start_date, end_date, student_id, dosen_id, mitra_id, partner_id, company_name, status, periode_id,
                 student:users_profile!internships_student_id_fkey(full_name, identifier),
                 dosen:users_profile!internships_dosen_id_fkey(full_name),
+                mitra:users_profile!internships_mitra_id_fkey(full_name),
                 partner:partners(name)
             `).order('created_at', { ascending: false }),
             supabase.from('periode_akademik').select('*').order('created_at', { ascending: false }),
@@ -71,6 +75,7 @@ export default function PlottingMagang() {
 
         if (mhsData) setStudents(mhsData);
         if (dsnData) setDosens(dsnData);
+        if (mtrData) setMitras(mtrData);
         if (ptnData) setPartners(ptnData);
         if (intData) setInternships(intData);
         if (periodeData) {
@@ -108,16 +113,17 @@ export default function PlottingMagang() {
     // ── Modal: Tambah ──────────────────────────────────────
     const handleOpenAdd = () => {
         setEditingPlot(null);
-        setFormData({ student_id: '', dosen_id: '', partner_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' });
+        setFormData({ student_id: '', dosen_id: '', mitra_id: '', partner_id: '', start_date: new Date().toISOString().split('T')[0], end_date: '' });
         setShowModal(true);
     };
 
-    // ── Modal: Edit (hanya mitra, dosen, tanggal) ──────────
+    // ── Modal: Edit ──────────────────────────────────────
     const handleOpenEdit = (plot) => {
         setEditingPlot(plot);
         setFormData({
             student_id: plot.student_id,
-            dosen_id:   plot.dosen_id,
+            dosen_id:   plot.dosen_id || '',
+            mitra_id:   plot.mitra_id || '',
             partner_id: plot.partner_id || '',
             start_date: plot.start_date || '',
             end_date:   plot.end_date   || '',
@@ -141,6 +147,7 @@ export default function PlottingMagang() {
             const payload = {
                 student_id:   formData.student_id,
                 dosen_id:     formData.dosen_id,
+                mitra_id:     formData.mitra_id || null,
                 partner_id:   formData.partner_id,
                 company_name: selectedPartner?.name,
                 start_date:   formData.start_date,
@@ -265,20 +272,20 @@ export default function PlottingMagang() {
 
             {/* Table */}
             <div className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
-                                {['Mahasiswa', 'Dosen Pembimbing', 'Mitra / Instansi', 'Periode', 'Status', 'Aksi'].map(h => (
+                <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 340px)', overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '780px' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#F8FAFC' }}>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                {['Mahasiswa', 'Dosen Pembimbing', 'Pendamping Lapangan', 'Mitra / Instansi', 'Periode', 'Status', 'Aksi'].map(h => (
                                     <th key={h} style={{ padding: '11px 16px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                Array.from({ length: 8 }).map((_, i) => <SkeletonTableRow key={i} cols={6} />)
+                                Array.from({ length: 8 }).map((_, i) => <SkeletonTableRow key={i} cols={7} />)
                             ) : paged.length === 0 ? (
-                                <tr><td colSpan={6} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                <tr><td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
                                     {search ? 'Tidak ada penempatan yang sesuai pencarian.' : 'Belum ada mahasiswa yang ditempatkan.'}
                                 </td></tr>
                             ) : paged.map(plot => (
@@ -300,6 +307,12 @@ export default function PlottingMagang() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <GraduationCap size={13} color="var(--text-muted)" />
                                             {plot.dosen?.full_name || <span style={{ color: '#CBD5E1' }}>—</span>}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: '12px 16px', fontSize: '0.87rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <User size={13} color="var(--text-muted)" />
+                                            {plot.mitra?.full_name || <span style={{ color: '#CBD5E1' }}>Belum Ditentukan</span>}
                                         </div>
                                     </td>
                                     <td style={{ padding: '12px 16px', fontSize: '0.87rem' }}>
@@ -381,6 +394,14 @@ export default function PlottingMagang() {
                                 <select required className="input-field" value={formData.dosen_id} onChange={e => setFormData({ ...formData, dosen_id: e.target.value })}>
                                     <option value="" disabled>— Pilih Dosen —</option>
                                     {dosens.map(d => <option key={d.id} value={d.id}>{d.full_name}</option>)}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Pendamping Lapangan (Mitra)</label>
+                                <select className="input-field" value={formData.mitra_id} onChange={e => setFormData({ ...formData, mitra_id: e.target.value })}>
+                                    <option value="">— Pilih Pendamping Lapangan (Opsional) —</option>
+                                    {mitras.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
                                 </select>
                             </div>
 

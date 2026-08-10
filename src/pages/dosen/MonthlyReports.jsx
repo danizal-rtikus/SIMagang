@@ -129,10 +129,10 @@ export default function DosenMonthlyReports() {
 
             {/* Matrix Table */}
             <div className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 300px)', overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid var(--border)' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#F8FAFC' }}>
+                            <tr style={{ borderBottom: '2px solid var(--border)' }}>
                                 <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.78rem', whiteSpace: 'nowrap', minWidth: '200px' }}>Mahasiswa</th>
                                 <th style={{ padding: '12px 8px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.78rem', textAlign: 'center', width: '80px' }}>Progress</th>
                                 {[1,2,3,4,5,6].map(m => (

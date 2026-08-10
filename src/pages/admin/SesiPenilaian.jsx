@@ -211,10 +211,10 @@ export default function AdminSesiPenilaian() {
                 </div>
             ) : (
                 <div className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden' }}>
-                    <div style={{ overflowX: 'auto' }}>
+                    <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 340px)', overflowY: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
+                            <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#F8FAFC' }}>
+                                <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                     <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Mahasiswa</th>
                                     <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Instansi Mitra</th>
                                     <th style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Dosen Pembimbing</th>

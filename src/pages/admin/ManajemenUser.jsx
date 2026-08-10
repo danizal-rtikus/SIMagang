@@ -12,6 +12,7 @@ const PAGE_SIZE = 15;
 const ROLE_META = {
     admin:     { label: 'Admin',     bg: '#FEF2F2', color: '#DC2626', icon: <Shield size={11} /> },
     dosen:     { label: 'Dosen',     bg: '#E0E7FF', color: '#4338CA', icon: <GraduationCap size={11} /> },
+    mitra:     { label: 'Mitra',     bg: '#FEF3C7', color: '#D97706', icon: <User size={11} /> },
     mahasiswa: { label: 'Mahasiswa', bg: '#F0FDF4', color: '#059669', icon: <User size={11} /> },
 };
 
@@ -77,6 +78,7 @@ export default function ManajemenUser() {
         all:       users.length,
         admin:     users.filter(u => u.role === 'admin').length,
         dosen:     users.filter(u => u.role === 'dosen').length,
+        mitra:     users.filter(u => u.role === 'mitra').length,
         mahasiswa: users.filter(u => u.role === 'mahasiswa').length,
     }), [users]);
 
@@ -164,6 +166,7 @@ export default function ManajemenUser() {
                     { value: 'all',       label: 'Semua',     icon: <Users size={13} /> },
                     { value: 'admin',     label: 'Admin',     icon: <Shield size={13} /> },
                     { value: 'dosen',     label: 'Dosen',     icon: <GraduationCap size={13} /> },
+                    { value: 'mitra',     label: 'Mitra',     icon: <User size={13} /> },
                     { value: 'mahasiswa', label: 'Mahasiswa', icon: <User size={13} /> },
                 ].map(tab => (
                     <button key={tab.value}
@@ -217,10 +220,10 @@ export default function ManajemenUser() {
 
             {/* Table */}
             <div className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden' }}>
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 340px)', overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '660px' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#F8FAFC' }}>
+                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                 {['Nama & Email', 'No. Identitas', 'Role', 'Terdaftar', 'Aksi'].map(h => (
                                     <th key={h} style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{h}</th>
                                 ))}
@@ -330,6 +333,7 @@ export default function ManajemenUser() {
                                 <select className="input-field" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})}>
                                     <option value="mahasiswa">Mahasiswa</option>
                                     <option value="dosen">Dosen</option>
+                                    <option value="mitra">Pendamping Lapangan (Mitra)</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </div>

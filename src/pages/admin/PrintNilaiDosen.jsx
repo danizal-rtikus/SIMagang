@@ -3,21 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
-function convertToFinalScore(rawSum, totalButir) {
-    if (!totalButir) return 0;
-    const minRaw = totalButir;      // all SK=1
-    const maxRaw = totalButir * 5;  // all BS=5
-    return Math.round(((rawSum - minRaw) / (maxRaw - minRaw)) * (100 - 45) + 45);
-}
-
-function getGradeLabel(score) {
-    if (score >= 85) return 'A';
-    if (score >= 75) return 'B';
-    if (score >= 65) return 'C';
-    if (score >= 55) return 'D';
-    return 'E';
-}
+import { convertToFinalScore, getGrade } from '../../lib/grading';
 
 export default function AdminPrintNilaiDosen() {
     const { dosenId } = useParams();
@@ -28,13 +14,14 @@ export default function AdminPrintNilaiDosen() {
     const [activePeriod, setActivePeriod] = useState(null);
     const [studentsReport, setStudentsReport] = useState([]);
     const [totalButir, setTotalButir] = useState(0);
+    const [scaleType, setScaleType] = useState('5');
 
     useEffect(() => {
         if (dosenId) {
             fetchData();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dosenId]);
+    }, [dosenId, scaleType]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -52,11 +39,12 @@ export default function AdminPrintNilaiDosen() {
             // 2. Fetch Active Period
             const { data: period } = await supabase
                 .from('periode_akademik')
-                .select('nama')
+                .select('*')
                 .eq('status', 'active')
                 .maybeSingle();
             
             setActivePeriod(period || { nama: '-' });
+            if (period?.skala_penilaian) setScaleType(period.skala_penilaian);
 
             // 3. Fetch Aspek & Butir Penilaian to get total count
             const { data: aspekData } = await supabase
@@ -75,7 +63,7 @@ export default function AdminPrintNilaiDosen() {
                     penilaian_status,
                     student:users_profile!internships_student_id_fkey(full_name, identifier),
                     partner:partners(name),
-                    penilaian_magang(butir_id, nilai)
+                    penilaian_magang(butir_id, nilai, evaluator_role)
                 `)
                 .eq('dosen_id', dosenId)
                 .in('status', ['approved', 'finished']);
@@ -85,11 +73,25 @@ export default function AdminPrintNilaiDosen() {
             // Process scores
             const processed = (internships || []).map(item => {
                 const grades = item.penilaian_magang || [];
-                const answeredCount = grades.length;
-                const rawSum = grades.reduce((sum, g) => sum + g.nilai, 0);
-                const isComplete = answeredCount === butirCount && butirCount > 0;
-                const finalScore = isComplete ? convertToFinalScore(rawSum, butirCount) : null;
-                const grade = finalScore ? getGradeLabel(finalScore) : null;
+                const dosenGrades = grades.filter(g => g.evaluator_role !== 'mitra');
+                const mitraGrades = grades.filter(g => g.evaluator_role === 'mitra');
+
+                const rawDosen = dosenGrades.reduce((sum, g) => sum + g.nilai, 0);
+                const rawMitra = mitraGrades.reduce((sum, g) => sum + g.nilai, 0);
+
+                const scoreDosen = dosenGrades.length === butirCount && butirCount > 0 ? convertToFinalScore(rawDosen, butirCount) : null;
+                const scoreMitra = mitraGrades.length === butirCount && butirCount > 0 ? convertToFinalScore(rawMitra, butirCount) : null;
+
+                let finalScore = null;
+                if (scoreMitra !== null && scoreDosen !== null) {
+                    finalScore = Math.round((scoreMitra * 0.60) + (scoreDosen * 0.40));
+                } else if (scoreDosen !== null) {
+                    finalScore = scoreDosen;
+                } else if (scoreMitra !== null) {
+                    finalScore = scoreMitra;
+                }
+
+                const gradeObj = finalScore !== null ? getGrade(finalScore, scaleType) : null;
 
                 return {
                     id: item.id,
@@ -97,11 +99,10 @@ export default function AdminPrintNilaiDosen() {
                     studentNim: item.student?.identifier || 'N/A',
                     partnerName: item.partner?.name || 'Belum diplot',
                     penilaian_status: item.penilaian_status || 'open',
-                    rawSum,
-                    answeredCount,
-                    isComplete,
+                    scoreDosen,
+                    scoreMitra,
                     finalScore,
-                    grade
+                    grade: gradeObj?.label || '—'
                 };
             });
 
@@ -127,13 +128,22 @@ export default function AdminPrintNilaiDosen() {
     return (
         <div style={{ backgroundColor: 'white', minHeight: '100vh', padding: '20px' }}>
             {/* Control Bar (Hidden on Print) */}
-            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)' }}>
                 <button onClick={() => navigate(-1)} className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--text-main)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <ArrowLeft size={18} /> Kembali
                 </button>
-                <button onClick={handlePrint} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <Printer size={18} /> Cetak / Simpan PDF
-                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#E2E8F0', padding: '4px', borderRadius: '6px' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', padding: '0 6px' }}>Skala Grading:</span>
+                        <button onClick={() => setScaleType('5')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '0.78rem', fontWeight: 700, border: 'none', cursor: 'pointer', backgroundColor: scaleType === '5' ? 'var(--primary)' : 'transparent', color: scaleType === '5' ? 'white' : 'var(--text-muted)' }}>5 Skala</button>
+                        <button onClick={() => setScaleType('8')} style={{ padding: '4px 10px', borderRadius: '5px', fontSize: '0.78rem', fontWeight: 700, border: 'none', cursor: 'pointer', backgroundColor: scaleType === '8' ? 'var(--primary)' : 'transparent', color: scaleType === '8' ? 'white' : 'var(--text-muted)' }}>8 Skala</button>
+                    </div>
+
+                    <button onClick={handlePrint} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <Printer size={18} /> Cetak / Simpan PDF
+                    </button>
+                </div>
             </div>
 
             {/* Print Container */}
@@ -185,37 +195,37 @@ export default function AdminPrintNilaiDosen() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px', fontSize: '0.88rem' }}>
                         <thead>
                             <tr style={{ backgroundColor: '#F1F5F9' }}>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '5%', textAlign: 'center', fontWeight: 'bold' }}>No</th>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '15%', textAlign: 'center', fontWeight: 'bold' }}>NIM</th>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '30%', textAlign: 'left', fontWeight: 'bold' }}>Nama Mahasiswa</th>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '25%', textAlign: 'left', fontWeight: 'bold' }}>Mitra Industri / Perusahaan</th>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '10%', textAlign: 'center', fontWeight: 'bold' }}>Skor Mentah</th>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '10%', textAlign: 'center', fontWeight: 'bold' }}>Nilai Akhir</th>
-                                <th style={{ border: '1px solid black', padding: '10px 8px', width: '5%', textAlign: 'center', fontWeight: 'bold' }}>Grade</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '5%', textAlign: 'center', fontWeight: 'bold' }}>No</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '13%', textAlign: 'center', fontWeight: 'bold' }}>NIM</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '27%', textAlign: 'left', fontWeight: 'bold' }}>Nama Mahasiswa</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '22%', textAlign: 'left', fontWeight: 'bold' }}>Mitra Industri</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '11%', textAlign: 'center', fontWeight: 'bold' }}>Mitra (60%)</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '11%', textAlign: 'center', fontWeight: 'bold' }}>Dosen (40%)</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '11%', textAlign: 'center', fontWeight: 'bold' }}>Nilai Akhir</th>
+                                <th style={{ border: '1px solid black', padding: '8px 6px', width: '8%', textAlign: 'center', fontWeight: 'bold' }}>Grade ({scaleType} S)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {studentsReport.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" style={{ border: '1px solid black', padding: '20px', textAlign: 'center', fontStyle: 'italic', color: '#64748B' }}>
+                                    <td colSpan="8" style={{ border: '1px solid black', padding: '20px', textAlign: 'center', fontStyle: 'italic', color: '#64748B' }}>
                                         Belum ada mahasiswa bimbingan magang aktif.
                                     </td>
                                 </tr>
                             ) : (
                                 studentsReport.map((student, idx) => (
                                     <tr key={student.id}>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px', textAlign: 'center' }}>{idx + 1}</td>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px', textAlign: 'center', fontFamily: 'monospace' }}>{student.studentNim}</td>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px', fontWeight: 500 }}>{student.studentName}</td>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px' }}>{student.partnerName}</td>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px', textAlign: 'center' }}>
-                                            {student.answeredCount > 0 ? `${student.rawSum} / ${totalButir * 5}` : '—'}
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', textAlign: 'center' }}>{idx + 1}</td>
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', textAlign: 'center', fontFamily: 'monospace' }}>{student.studentNim}</td>
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', fontWeight: 500 }}>{student.studentName}</td>
+                                        <td style={{ border: '1px solid black', padding: '8px 6px' }}>{student.partnerName}</td>
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', textAlign: 'center' }}>{student.scoreMitra !== null ? student.scoreMitra : '—'}</td>
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', textAlign: 'center' }}>{student.scoreDosen !== null ? student.scoreDosen : '—'}</td>
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', textAlign: 'center', fontWeight: 'bold' }}>
+                                            {student.finalScore !== null ? student.finalScore : 'Belum Lengkap'}
                                         </td>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px', textAlign: 'center', fontWeight: student.isComplete ? 'bold' : 'normal' }}>
-                                            {student.isComplete ? student.finalScore : student.answeredCount > 0 ? `Belum Lengkap (${student.answeredCount}/${totalButir})` : 'Belum Dinilai'}
-                                        </td>
-                                        <td style={{ border: '1px solid black', padding: '10px 8px', textAlign: 'center', fontWeight: 'bold' }}>
-                                            {student.grade || '—'}
+                                        <td style={{ border: '1px solid black', padding: '8px 6px', textAlign: 'center', fontWeight: 'bold' }}>
+                                            {student.grade}
                                         </td>
                                     </tr>
                                 ))

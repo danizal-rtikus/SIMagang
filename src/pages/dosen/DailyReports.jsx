@@ -286,7 +286,7 @@ export default function DosenDailyReports() {
                     )}
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: 'calc(100vh - 300px)', overflowY: 'auto', paddingRight: '4px' }}>
                     {filtered.map(student => {
                         const isOpen = !!expandedStudents[student.id];
                         const pending  = student.reports.filter(r => r.status === 'submitted').length;

@@ -111,6 +111,10 @@ function App() {
           <Route path="dosen/map" element={<DosenMap />} />
           <Route path="dosen/input-nilai" element={<DosenInputNilai />} />
 
+          {/* Menu Mitra / Pendamping Lapangan */}
+          <Route path="mitra/announcements" element={<Pengumuman />} />
+          <Route path="mitra/input-nilai" element={<DosenInputNilai />} />
+
           {/* Menu Mahasiswa */}
           <Route path="mahasiswa/announcements" element={<Pengumuman />} />
           <Route path="mahasiswa/attendance" element={<Attendance />} />

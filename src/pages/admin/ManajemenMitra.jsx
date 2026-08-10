@@ -98,7 +98,8 @@ export default function ManajemenMitra() {
                 </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+            <div style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', paddingRight: '4px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
                 {loading ? (
                     Array.from({ length: 6 }).map((_, i) => (
                         <div key={i} className="glass-panel" style={{ padding: '24px', backgroundColor: 'white' }}>
@@ -161,6 +162,7 @@ export default function ManajemenMitra() {
                         </div>
                     ))
                 )}
+                </div>
             </div>
 
             {showModal && (
