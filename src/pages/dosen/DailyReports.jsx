@@ -297,7 +297,7 @@ export default function DosenDailyReports() {
                         return (
                             <div key={student.id}
                                 className="glass-panel"
-                                style={{ backgroundColor: 'white', overflow: 'hidden', transition: 'box-shadow 0.15s' }}>
+                                style={{ backgroundColor: 'white', overflow: 'hidden', transition: 'box-shadow 0.15s', flexShrink: 0 }}>
 
                                 {/* Student header row (always visible) */}
                                 <button

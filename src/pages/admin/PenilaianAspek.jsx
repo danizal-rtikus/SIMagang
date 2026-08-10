@@ -187,7 +187,7 @@ export default function PenilaianAspek() {
                 {aspeks.map((aspek, ai) => {
                     const isOpen = !!openAspek[aspek.id];
                     return (
-                        <div key={aspek.id} className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden' }}>
+                        <div key={aspek.id} className="glass-panel" style={{ backgroundColor: 'white', overflow: 'hidden', flexShrink: 0 }}>
                             {/* Aspek row */}
                             {editingAspek?.id === aspek.id ? (
                                 <div style={{ padding: '14px 18px', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap', backgroundColor: '#FFFBEB', borderBottom: '1px solid #FCD34D' }}>
