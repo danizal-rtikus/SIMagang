@@ -2,12 +2,19 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
     User, Shield, Edit3, Trash2, UserPlus, Search,
-    ChevronLeft, ChevronRight, Users, GraduationCap, Settings
+    ChevronLeft, ChevronRight, Users, GraduationCap, Settings, Award
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { SkeletonTableRow } from '../../components/Skeleton';
 
 const PAGE_SIZE = 15;
+
+const PRODI_OPTIONS = [
+    'Sistem Informasi',
+    'Teknik Informatika',
+    'Desain Komunikasi Visual',
+    'Komputerisasi Akuntansi',
+];
 
 const ROLE_META = {
     admin:     { label: 'Admin',     bg: '#FEF2F2', color: '#DC2626', icon: <Shield size={11} /> },
@@ -40,8 +47,13 @@ export default function ManajemenUser() {
     const [isAddMode, setIsAddMode]       = useState(false);
     const [editingUser, setEditingUser]   = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
-    const [formData, setFormData]         = useState({ full_name: '', identifier: '', role: 'mahasiswa', email: '', password: '' });
+    const [formData, setFormData]         = useState({ full_name: '', identifier: '', role: 'mahasiswa', prodi: 'Sistem Informasi', email: '', password: '' });
     const [saving, setSaving]             = useState(false);
+
+    // Kaprodi Settings Modal state
+    const [showKaprodiModal, setShowKaprodiModal] = useState(false);
+    const [prodiSettings, setProdiSettings]       = useState([]);
+    const [savingKaprodi, setSavingKaprodi]         = useState(false);
 
     useEffect(() => { fetchUsers(); }, []);
 
@@ -82,16 +94,54 @@ export default function ManajemenUser() {
         mahasiswa: users.filter(u => u.role === 'mahasiswa').length,
     }), [users]);
 
+    const fetchProdiSettings = async () => {
+        const { data } = await supabase.from('prodi_settings').select('*').order('prodi_name');
+        if (data && data.length > 0) {
+            setProdiSettings(data);
+        } else {
+            // Default 4 prodi if empty
+            setProdiSettings(PRODI_OPTIONS.map(p => ({ prodi_name: p, kaprodi_name: '', kaprodi_nidn: '' })));
+        }
+    };
+
+    const handleOpenKaprodiModal = async () => {
+        await fetchProdiSettings();
+        setShowKaprodiModal(true);
+    };
+
+    const handleSaveKaprodi = async (e) => {
+        e.preventDefault();
+        setSavingKaprodi(true);
+        const toastId = toast.loading('Menyimpan pengaturan Kaprodi...');
+        try {
+            for (const item of prodiSettings) {
+                const { error } = await supabase.from('prodi_settings').upsert({
+                    prodi_name: item.prodi_name,
+                    kaprodi_name: item.kaprodi_name,
+                    kaprodi_nidn: item.kaprodi_nidn,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'prodi_name' });
+                if (error) throw error;
+            }
+            toast.success('Pengaturan Kaprodi berhasil disimpan!', { id: toastId });
+            setShowKaprodiModal(false);
+        } catch (err) {
+            toast.error('Gagal menyimpan Kaprodi: ' + err.message, { id: toastId });
+        } finally {
+            setSavingKaprodi(false);
+        }
+    };
+
     // ── Modal handlers ─────────────────────────────────────
     const handleAdd = () => {
         setIsAddMode(true); setEditingUser(null);
-        setFormData({ full_name: '', identifier: '', role: 'mahasiswa', email: '', password: '' });
+        setFormData({ full_name: '', identifier: '', role: 'mahasiswa', prodi: 'Sistem Informasi', email: '', password: '' });
         setShowModal(true);
     };
 
     const handleEdit = (user) => {
         setIsAddMode(false); setEditingUser(user);
-        setFormData({ full_name: user.full_name, identifier: user.identifier || '', role: user.role, email: user.email || '', password: '' });
+        setFormData({ full_name: user.full_name, identifier: user.identifier || '', role: user.role, prodi: user.prodi || 'Sistem Informasi', email: user.email || '', password: '' });
         setShowModal(true);
     };
 
@@ -108,10 +158,14 @@ export default function ManajemenUser() {
                     body: { action: 'createUser', payload: { email: formData.email, password: formData.password, full_name: formData.full_name, identifier: formData.identifier, role: formData.role } }
                 });
                 if (!data?.success || error) throw new Error(data?.error || error?.message || 'Gagal mendaftar');
+                
+                // Update prodi info
+                await supabase.from('users_profile').update({ prodi: formData.prodi }).eq('email', formData.email);
+                
                 toast.success('Pengguna baru berhasil ditambahkan!', { id: toastId });
             } else {
                 const { error: pErr } = await supabase.from('users_profile')
-                    .update({ full_name: formData.full_name, identifier: formData.identifier, role: formData.role })
+                    .update({ full_name: formData.full_name, identifier: formData.identifier, role: formData.role, prodi: formData.prodi })
                     .eq('id', editingUser.id);
                 if (pErr) throw pErr;
 
@@ -153,11 +207,16 @@ export default function ManajemenUser() {
             <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                     <h1 style={{ fontSize: '1.6rem', marginBottom: '4px' }}>Manajemen User</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Kelola data profil dan hak akses seluruh pengguna sistem.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Kelola data profil, prodi, dan hak akses seluruh pengguna sistem.</p>
                 </div>
-                <button onClick={handleAdd} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem' }}>
-                    <UserPlus size={16} /> Tambah Pengguna
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={handleOpenKaprodiModal} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', backgroundColor: '#1b1b1f' }}>
+                        <Award size={16} /> Pengaturan Kaprodi
+                    </button>
+                    <button onClick={handleAdd} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem' }}>
+                        <UserPlus size={16} /> Tambah Pengguna
+                    </button>
+                </div>
             </div>
 
             {/* Role tab filter */}
@@ -338,6 +397,17 @@ export default function ManajemenUser() {
                                 </select>
                             </div>
 
+                            {formData.role === 'mahasiswa' && (
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.88rem' }}>Program Studi (Prodi)</label>
+                                    <select className="input-field" value={formData.prodi} onChange={e => setFormData({...formData, prodi: e.target.value})}>
+                                        {PRODI_OPTIONS.map(p => (
+                                            <option key={p} value={p}>{p}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <div style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '7px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)' }}>🔐 Login & Keamanan</p>
                                 <div>
@@ -355,6 +425,64 @@ export default function ManajemenUser() {
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                                 <button type="button" onClick={() => setShowModal(false)} style={{ padding: '9px 18px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '0.88rem' }}>Batal</button>
                                 <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Menyimpan...' : 'Simpan'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Kaprodi Settings Modal */}
+            {showKaprodiModal && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div className="glass-panel" style={{ width: '100%', maxWidth: '600px', backgroundColor: 'white', padding: '28px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                            <Award size={24} color="var(--primary)" />
+                            <div>
+                                <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Pengaturan Ketua Program Studi (Kaprodi)</h2>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: 0 }}>Atur Nama & NIDN Kaprodi yang akan tercantum pada pengesahan cetak dokumen.</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSaveKaprodi} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {prodiSettings.map((item, index) => (
+                                <div key={item.prodi_name} style={{ padding: '14px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                                    <p style={{ margin: '0 0 10px 0', fontWeight: 700, fontSize: '0.9rem', color: 'var(--primary)' }}>
+                                        🎓 {item.prodi_name}
+                                    </p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px' }}>Nama Kaprodi</label>
+                                            <input
+                                                type="text"
+                                                className="input-field"
+                                                placeholder="Contoh: Dr. Nama Kaprodi, M.Kom"
+                                                value={item.kaprodi_name || ''}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setProdiSettings(prev => prev.map((p, i) => i === index ? { ...p, kaprodi_name: val } : p));
+                                                }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted)', marginBottom: '4px' }}>NIDN Kaprodi</label>
+                                            <input
+                                                type="text"
+                                                className="input-field"
+                                                placeholder="Contoh: 0601018801"
+                                                value={item.kaprodi_nidn || ''}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    setProdiSettings(prev => prev.map((p, i) => i === index ? { ...p, kaprodi_nidn: val } : p));
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                                <button type="button" onClick={() => setShowKaprodiModal(false)} style={{ padding: '9px 18px', border: '1px solid var(--border)', borderRadius: '6px', background: 'white', cursor: 'pointer', fontSize: '0.88rem' }}>Batal</button>
+                                <button type="submit" disabled={savingKaprodi} className="btn-primary">{savingKaprodi ? 'Menyimpan...' : 'Simpan Pengaturan Kaprodi'}</button>
                             </div>
                         </form>
                     </div>

@@ -1,41 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { ArrowLeft, Printer } from 'lucide-react';
 
 export default function PrintDailyReports() {
-    const { userProfile } = useOutletContext();
+    const context = useOutletContext();
+    const userProfile = context?.userProfile || null;
+    const { studentId } = useParams();
     const navigate = useNavigate();
-    
+
+    const targetStudentId = studentId || userProfile?.id;
     const [reports, setReports] = useState([]);
+    const [studentProfile, setStudentProfile] = useState({ full_name: '-', identifier: '-', prodi: 'Sistem Informasi' });
     const [internshipInfo, setInternshipInfo] = useState({ partnerName: '-', dosenName: '-' });
+    const [kaprodiInfo, setKaprodiInfo] = useState({ kaprodi_name: '', kaprodi_nidn: '' });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (userProfile?.id) {
+        if (targetStudentId) {
             fetchData();
         }
-    }, [userProfile]);
+    }, [targetStudentId, userProfile]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch Reports (Ordered by date ASC for logging)
+            // 1. Fetch Student Profile
+            let currentStudent = null;
+            if (studentId) {
+                const { data: stData } = await supabase
+                    .from('users_profile')
+                    .select('full_name, identifier, prodi')
+                    .eq('id', studentId)
+                    .single();
+                if (stData) {
+                    currentStudent = stData;
+                    setStudentProfile(stData);
+                }
+            } else if (userProfile) {
+                currentStudent = userProfile;
+                setStudentProfile({
+                    full_name: userProfile.full_name || '-',
+                    identifier: userProfile.identifier || '-',
+                    prodi: userProfile.prodi || 'Sistem Informasi'
+                });
+            }
+
+            const activeProdi = currentStudent?.prodi || 'Sistem Informasi';
+
+            // 2. Fetch Kaprodi Info for this Prodi
+            const { data: kapData } = await supabase
+                .from('prodi_settings')
+                .select('*')
+                .eq('prodi_name', activeProdi)
+                .maybeSingle();
+
+            if (kapData) {
+                setKaprodiInfo(kapData);
+            }
+
+            // 3. Fetch Daily Reports (Ordered by date ASC)
             const { data: reportsData } = await supabase
                 .from('daily_reports')
                 .select('*')
-                .eq('student_id', userProfile.id)
+                .eq('student_id', targetStudentId)
                 .order('date', { ascending: true });
 
-            // Fetch Internship details (Dosen & Partner)
+            // 4. Fetch Internship details (Dosen & Partner)
             const { data: internshipData } = await supabase
                 .from('internships')
                 .select(`
                     dosen:users_profile!internships_dosen_id_fkey(full_name),
                     partner:partners(name)
                 `)
-                .eq('student_id', userProfile.id)
-                .single();
+                .eq('student_id', targetStudentId)
+                .maybeSingle();
 
             if (reportsData) setReports(reportsData);
             if (internshipData) {
@@ -45,12 +84,26 @@ export default function PrintDailyReports() {
                 });
             }
         } catch (error) {
-            console.error(error);
+            console.error('Error fetching print logbook data:', error);
         }
         setLoading(false);
     };
 
-    // Helper to chunk array
+    const handleBack = () => {
+        if (window.history.state && window.history.state.idx > 0) {
+            navigate(-1);
+        } else if (studentId) {
+            navigate('/dosen/daily-reports');
+        } else {
+            navigate('/mahasiswa/daily-reports');
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    // Helper to chunk array into pages of 5 records
     const chunkArray = (arr, size) => {
         const chunked = [];
         for (let i = 0; i < arr.length; i += size) {
@@ -59,30 +112,26 @@ export default function PrintDailyReports() {
         return chunked;
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     if (loading) {
         return <div style={{ padding: '40px', textAlign: 'center' }}>Mempersiapkan dokumen...</div>;
     }
 
-    const pages = chunkArray(reports, 5); // 5 records per page
+    const pages = chunkArray(reports, 5);
 
     return (
         <div style={{ backgroundColor: 'white', minHeight: '100vh', padding: '20px' }}>
             {/* Control Bar (Hidden on Print) */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <button onClick={() => navigate(-1)} className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--text-main)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={handleBack} className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--text-main)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <ArrowLeft size={18} /> Kembali
                 </button>
-                <button onClick={handlePrint} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button onClick={handlePrint} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <Printer size={18} /> Cetak / Simpan PDF
                 </button>
             </div>
 
             {pages.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>Belum ada catatan logbook untuk dicetak.</div>
+                <div style={{ textAlign: 'center', padding: '40px' }}>Belum ada catatan logbook harian untuk dicetak.</div>
             ) : (
                 <div className="print-container" style={{ width: '100%', maxWidth: '210mm', margin: '0 auto', backgroundColor: 'white' }}>
                     
@@ -118,12 +167,17 @@ export default function PrintDailyReports() {
                                         <tr>
                                             <td style={{ padding: '4px 16px 4px 0', fontWeight: 600 }}>Nama Mahasiswa</td>
                                             <td style={{ padding: '4px 8px' }}>:</td>
-                                            <td style={{ padding: '4px 0', textTransform: 'capitalize' }}>{userProfile.full_name}</td>
+                                            <td style={{ padding: '4px 0', textTransform: 'capitalize' }}>{studentProfile.full_name}</td>
                                         </tr>
                                         <tr>
                                             <td style={{ padding: '4px 16px 4px 0', fontWeight: 600 }}>Nomor Induk (NIM)</td>
                                             <td style={{ padding: '4px 8px' }}>:</td>
-                                            <td style={{ padding: '4px 0' }}>{userProfile.identifier}</td>
+                                            <td style={{ padding: '4px 0' }}>{studentProfile.identifier}</td>
+                                        </tr>
+                                        <tr>
+                                            <td style={{ padding: '4px 16px 4px 0', fontWeight: 600 }}>Program Studi</td>
+                                            <td style={{ padding: '4px 8px' }}>:</td>
+                                            <td style={{ padding: '4px 0', fontWeight: 'bold' }}>{studentProfile.prodi || 'Sistem Informasi'}</td>
                                         </tr>
                                         <tr>
                                             <td style={{ padding: '4px 16px 4px 0', fontWeight: 600 }}>Instansi / Mitra</td>
@@ -161,7 +215,7 @@ export default function PrintDailyReports() {
                                             </td>
                                         </tr>
                                     ))}
-                                    {/* Isi baris kosong jika record kurang dari 5 (opsional agar tinggi sama) */}
+                                    {/* Baris kosong penyeimbang */}
                                     {Array.from({ length: 5 - pageRecords.length }).map((_, emptyIdx) => (
                                         <tr key={`empty-${emptyIdx}`}>
                                             <td style={{ border: '1px solid black', padding: '10px', height: '60px' }}></td>
@@ -182,13 +236,25 @@ export default function PrintDailyReports() {
                                     padding: '0 40px'
                                 }}>
                                     <div style={{ textAlign: 'center' }}>
-                                        <p style={{ margin: '0 0 80px 0' }}>Mengetahui,</p>
-                                        <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>{internshipInfo.dosenName}</p>
-                                        <p style={{ margin: 0 }}>Dosen Pendamping</p>
+                                        <p style={{ margin: '0 0 60px 0', lineHeight: 1.4 }}>
+                                            Mengetahui,<br/>
+                                            Ketua Program Studi {studentProfile.prodi || 'Sistem Informasi'}
+                                        </p>
+                                        <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>
+                                            {kaprodiInfo.kaprodi_name || '_________________________'}
+                                        </p>
+                                        <p style={{ margin: 0 }}>
+                                            NIDN. {kaprodiInfo.kaprodi_nidn || '—'}
+                                        </p>
                                     </div>
                                     <div style={{ textAlign: 'center' }}>
-                                        <p style={{ margin: '0 0 80px 0' }}>Purwokerto, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}<br/>Mengesahkan,</p>
-                                        <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>_________________________</p>
+                                        <p style={{ margin: '0 0 60px 0', lineHeight: 1.4 }}>
+                                            Purwokerto, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}<br/>
+                                            Mengesahkan,
+                                        </p>
+                                        <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>
+                                            _________________________
+                                        </p>
                                         <p style={{ margin: 0 }}>Pembimbing Lapangan (Mitra)</p>
                                     </div>
                                 </div>

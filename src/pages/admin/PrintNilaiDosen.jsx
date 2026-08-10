@@ -16,6 +16,8 @@ export default function AdminPrintNilaiDosen() {
     const [totalButir, setTotalButir] = useState(0);
     const [scaleType, setScaleType] = useState('5');
 
+    const [kaprodiInfo, setKaprodiInfo] = useState({ prodi_name: 'Sistem Informasi', kaprodi_name: '', kaprodi_nidn: '' });
+
     useEffect(() => {
         if (dosenId) {
             fetchData();
@@ -35,6 +37,15 @@ export default function AdminPrintNilaiDosen() {
 
             if (dosenErr) throw dosenErr;
             setDosenInfo(dosen);
+
+            // Fetch Kaprodi Info (default Sistem Informasi)
+            const { data: kapData } = await supabase
+                .from('prodi_settings')
+                .select('*')
+                .eq('prodi_name', 'Sistem Informasi')
+                .maybeSingle();
+
+            if (kapData) setKaprodiInfo(kapData);
 
             // 2. Fetch Active Period
             const { data: period } = await supabase
@@ -61,7 +72,7 @@ export default function AdminPrintNilaiDosen() {
                 .select(`
                     id,
                     penilaian_status,
-                    student:users_profile!internships_student_id_fkey(full_name, identifier),
+                    student:users_profile!internships_student_id_fkey(full_name, identifier, prodi),
                     partner:partners(name),
                     penilaian_magang(butir_id, nilai, evaluator_role)
                 `)
@@ -97,6 +108,7 @@ export default function AdminPrintNilaiDosen() {
                     id: item.id,
                     studentName: item.student?.full_name || 'Tanpa Nama',
                     studentNim: item.student?.identifier || 'N/A',
+                    studentProdi: item.student?.prodi || 'Sistem Informasi',
                     partnerName: item.partner?.name || 'Belum diplot',
                     penilaian_status: item.penilaian_status || 'open',
                     scoreDosen,
@@ -110,10 +122,28 @@ export default function AdminPrintNilaiDosen() {
             processed.sort((a, b) => a.studentName.localeCompare(b.studentName));
             setStudentsReport(processed);
 
+            // If there is student prodi info, fetch kaprodi for that prodi
+            if (processed.length > 0 && processed[0].studentProdi) {
+                const { data: studentKap } = await supabase
+                    .from('prodi_settings')
+                    .select('*')
+                    .eq('prodi_name', processed[0].studentProdi)
+                    .maybeSingle();
+                if (studentKap) setKaprodiInfo(studentKap);
+            }
+
         } catch (err) {
             toast.error('Gagal mengambil data laporan: ' + err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBack = () => {
+        if (window.history.state && window.history.state.idx > 0) {
+            navigate(-1);
+        } else {
+            navigate('/admin/sesi-penilaian');
         }
     };
 
@@ -129,7 +159,7 @@ export default function AdminPrintNilaiDosen() {
         <div style={{ backgroundColor: 'white', minHeight: '100vh', padding: '20px' }}>
             {/* Control Bar (Hidden on Print) */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <button onClick={() => navigate(-1)} className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--text-main)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <button onClick={handleBack} className="btn-primary" style={{ backgroundColor: 'white', color: 'var(--text-main)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <ArrowLeft size={18} /> Kembali
                 </button>
 
@@ -235,14 +265,22 @@ export default function AdminPrintNilaiDosen() {
 
                     {/* Signatures */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '60px', padding: '0 40px', fontSize: '0.92rem' }}>
-                        <div style={{ textAlign: 'center', width: '220px' }}>
-                            <p style={{ margin: '0 0 80px 0' }}>Mengetahui,<br />Ketua Panitia Magang</p>
-                            <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>_________________________</p>
-                            <p style={{ margin: 0 }}>NIDN. —</p>
+                        <div style={{ textAlign: 'center', width: '250px' }}>
+                            <p style={{ margin: '0 0 60px 0', lineHeight: 1.4 }}>
+                                Mengetahui,<br />
+                                Ketua Program Studi {kaprodiInfo?.prodi_name || 'Sistem Informasi'}
+                            </p>
+                            <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>
+                                {kaprodiInfo?.kaprodi_name || '_________________________'}
+                            </p>
+                            <p style={{ margin: 0 }}>NIDN. {kaprodiInfo?.kaprodi_nidn || '—'}</p>
                         </div>
                         <div style={{ textAlign: 'center', width: '250px' }}>
-                            <p style={{ margin: '0 0 80px 0' }}>Purwokerto, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}<br />Dosen Pendamping,</p>
-                            <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>{dosenInfo?.full_name}</p>
+                            <p style={{ margin: '0 0 60px 0', lineHeight: 1.4 }}>
+                                Purwokerto, {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}<br />
+                                Dosen Pendamping,
+                            </p>
+                            <p style={{ margin: 0, fontWeight: 'bold', textDecoration: 'underline' }}>{dosenInfo?.full_name || '_________________________'}</p>
                             <p style={{ margin: 0 }}>NIDN. {dosenInfo?.identifier || '—'}</p>
                         </div>
                     </div>

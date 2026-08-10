@@ -118,8 +118,11 @@ function App() {
           {/* Menu Mahasiswa */}
           <Route path="mahasiswa/announcements" element={<Pengumuman />} />
           <Route path="mahasiswa/attendance" element={<Attendance />} />
+          <Route path="admin/daily-reports/print/:studentId" element={<MhsPrintDailyReports />} />
+          <Route path="dosen/daily-reports/print/:studentId" element={<MhsPrintDailyReports />} />
           <Route path="mahasiswa/daily-reports" element={<MhsDailyReports />} />
           <Route path="mahasiswa/daily-reports/print" element={<MhsPrintDailyReports />} />
+          <Route path="mahasiswa/daily-reports/print/:studentId" element={<MhsPrintDailyReports />} />
           <Route path="mahasiswa/monthly-reports" element={<MhsMonthlyReports />} />
           <Route path="mahasiswa/final-reports" element={<MhsFinalReports />} />
           <Route path="mahasiswa/nilai" element={<MhsNilaiMagang />} />

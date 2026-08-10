@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
     MessageSquare, CheckCircle, Edit3, ChevronDown, ChevronRight,
-    Search, Filter, ExternalLink, User, FileText, Clock, Calendar
+    Search, Filter, ExternalLink, User, FileText, Clock, Calendar, Printer
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { SkeletonTableRow } from '../../components/Skeleton';
@@ -37,6 +38,7 @@ function StatusBadge({ status }) {
 
 // ── Main Component ───────────────────────────────────────────
 export default function DosenDailyReports() {
+    const navigate = useNavigate();
     const [reports, setReports]         = useState([]);
     const [loading, setLoading]         = useState(true);
     const [search, setSearch]           = useState('');
@@ -345,6 +347,20 @@ export default function DosenDailyReports() {
                                                 ✓ Semua Disetujui
                                             </span>
                                         )}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/dosen/daily-reports/print/${student.id}`);
+                                            }}
+                                            style={{
+                                                padding: '4px 10px', borderRadius: '6px', fontSize: '0.73rem', fontWeight: 600,
+                                                backgroundColor: '#1b1b1f', color: 'white', border: 'none', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', gap: '5px'
+                                            }}
+                                            title="Cetak Logbook Harian Mahasiswa"
+                                        >
+                                            <Printer size={13} /> Cetak Logbook
+                                        </button>
                                     </div>
 
                                     {/* Right: chevron */}
