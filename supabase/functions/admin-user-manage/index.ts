@@ -49,7 +49,7 @@ serve(async (req) => {
     let resultData = null;
 
     if (action === 'createUser') {
-      const { email, password, full_name, identifier, role } = payload;
+      const { email, password, full_name, identifier, role, prodi } = payload;
       
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -63,7 +63,9 @@ serve(async (req) => {
           id: authData.user.id,
           full_name,
           identifier,
-          role
+          role,
+          email,
+          prodi
         }]);
         if (insertError) throw insertError;
         resultData = authData.user;
@@ -71,13 +73,15 @@ serve(async (req) => {
 
     } else if (action === 'updateUser') {
       const { userId, email, password } = payload;
-      let updates = {};
+      let updates: any = {};
       if (email) updates.email = email;
       if (password) updates.password = password;
 
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, updates);
-      if (authError) throw authError;
-      resultData = authData.user;
+      if (Object.keys(updates).length > 0) {
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, updates);
+        if (authError) throw authError;
+        resultData = authData.user;
+      }
 
     } else if (action === 'deleteUser') {
       const { userId } = payload;

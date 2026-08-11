@@ -141,7 +141,7 @@ export default function ManajemenUser() {
 
     const handleEdit = (user) => {
         setIsAddMode(false); setEditingUser(user);
-        setFormData({ full_name: user.full_name, identifier: user.identifier || '', role: user.role, prodi: user.prodi || 'Sistem Informasi', email: user.email || '', password: '' });
+        setFormData({ full_name: user.full_name || '', identifier: user.identifier || '', role: user.role || 'mahasiswa', prodi: user.prodi || 'Sistem Informasi', email: user.email || '', password: '' });
         setShowModal(true);
     };
 
@@ -155,23 +155,38 @@ export default function ManajemenUser() {
                 if (!formData.password || !formData.email)
                     throw new Error('Email dan password wajib diisi!');
                 const { data, error } = await supabase.functions.invoke('admin-user-manage', {
-                    body: { action: 'createUser', payload: { email: formData.email, password: formData.password, full_name: formData.full_name, identifier: formData.identifier, role: formData.role } }
+                    body: { action: 'createUser', payload: { email: formData.email, password: formData.password, full_name: formData.full_name, identifier: formData.identifier, role: formData.role, prodi: formData.prodi } }
                 });
                 if (!data?.success || error) throw new Error(data?.error || error?.message || 'Gagal mendaftar');
                 
-                // Update prodi info
-                await supabase.from('users_profile').update({ prodi: formData.prodi }).eq('email', formData.email);
+                // Update prodi & email info jika id tersedia
+                if (data.data?.id) {
+                    await supabase.from('users_profile').update({ prodi: formData.prodi, email: formData.email }).eq('id', data.data.id);
+                }
                 
                 toast.success('Pengguna baru berhasil ditambahkan!', { id: toastId });
             } else {
-                const { error: pErr } = await supabase.from('users_profile')
-                    .update({ full_name: formData.full_name, identifier: formData.identifier, role: formData.role, prodi: formData.prodi })
-                    .eq('id', editingUser.id);
-                if (pErr) throw pErr;
+                const profilePayload = {
+                    full_name: formData.full_name,
+                    identifier: formData.identifier,
+                    role: formData.role,
+                    prodi: formData.prodi
+                };
+                if (formData.email) profilePayload.email = formData.email;
 
-                if (formData.email !== editingUser.email || formData.password) {
+                const { error: pErr } = await supabase.from('users_profile')
+                    .update(profilePayload)
+                    .eq('id', editingUser.id);
+                if (pErr) {
+                    if (pErr.message?.includes('check constraint') || pErr.code === '23514') {
+                        throw new Error('Database menolak role "mitra". Harap jalankan script SQL supabase_schema_v12.sql di Supabase SQL Editor.');
+                    }
+                    throw pErr;
+                }
+
+                if ((formData.email && formData.email !== editingUser.email) || formData.password) {
                     const { data, error } = await supabase.functions.invoke('admin-user-manage', {
-                        body: { action: 'updateUser', payload: { userId: editingUser.id, email: formData.email !== editingUser.email ? formData.email : undefined, password: formData.password || undefined } }
+                        body: { action: 'updateUser', payload: { userId: editingUser.id, email: (formData.email && formData.email !== editingUser.email) ? formData.email : undefined, password: formData.password || undefined } }
                     });
                     if (!data?.success || error) throw new Error(data?.error || error?.message);
                 }
@@ -180,7 +195,7 @@ export default function ManajemenUser() {
             setShowModal(false);
             fetchUsers();
         } catch (err) {
-            toast.error(err.message, { id: toastId });
+            toast.error(err.message || 'Terjadi kesalahan saat menyimpan', { id: toastId });
         } finally {
             setSaving(false);
         }
